@@ -14,6 +14,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -42,6 +44,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.MusicNote
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -53,11 +56,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -75,6 +80,8 @@ import com.aeswox.arcmusic.sharing.SharingState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private const val NFC_TAP_PILL_TIMEOUT_MS = 30_000L
 private const val CONNECTION_ERROR_VISIBLE_MS = 2_500L
@@ -96,6 +103,7 @@ class GlobalOverlayViewModel @Inject constructor(
     val connectionRequest = sharingManager.connectionRequest
 
     fun acceptConnection(request: ConnectionRequest) = sharingManager.acceptConnection(request.endpointId)
+    fun rejectConnection(request: ConnectionRequest) = sharingManager.rejectConnection(request.endpointId)
     fun resetSharing() = sharingManager.reset()
 }
 
@@ -115,6 +123,7 @@ fun GlobalProgressOverlay(
     val isReceiving by viewModel.isReceiving.collectAsState()
     val senderName by viewModel.incomingSenderName.collectAsState()
     val connectionRequest by viewModel.connectionRequest.collectAsState()
+    val pendingConnectionRequest = connectionRequest
     val tapDetectedAt by NfcShareService.tapDetectedAtElapsedRealtime.collectAsState()
     val connectionFailedAt by NfcShareService.connectionFailedAtElapsedRealtime.collectAsState()
     var showConnectionError by remember { mutableStateOf(false) }
@@ -161,19 +170,38 @@ fun GlobalProgressOverlay(
         currentRoute == "receive" ||
         currentRoute?.startsWith("share") == true
     val shouldShow = (isScanning || hasTransferActivity || connectionRequest != null || showConnectionErrorForUi) && !isExcludedRoute
-    val canExpandTransfer = hasTransferActivity && connectionRequest == null && !isExcludedRoute
+    val canExpandPill = (hasTransferActivity || connectionRequest != null || showConnectionErrorForUi) && !isExcludedRoute
     var isExpanded by remember { mutableStateOf(false) }
 
-    LaunchedEffect(canExpandTransfer) {
-        if (!canExpandTransfer) isExpanded = false
+    LaunchedEffect(canExpandPill) {
+        if (!canExpandPill) isExpanded = false
     }
 
-    val artwork = remember(artworkB64) {
-        artworkB64?.let { encoded ->
-            runCatching {
-                val bytes = Base64.decode(encoded, Base64.DEFAULT)
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-            }.getOrNull()
+    val pillJellyScale = remember { Animatable(1f) }
+    var hasInitializedExpansion by remember { mutableStateOf(false) }
+    LaunchedEffect(isExpanded) {
+        if (!hasInitializedExpansion) {
+            hasInitializedExpansion = true
+            return@LaunchedEffect
+        }
+
+        // A tiny squash-pop on expand/collapse, matching the app's jelly button motion.
+        pillJellyScale.animateTo(if (isExpanded) 0.988f else 0.994f, tween(55, easing = FastOutSlowInEasing))
+        pillJellyScale.animateTo(
+            if (isExpanded) 1.012f else 1.006f,
+            spring(dampingRatio = 0.58f, stiffness = 900f)
+        )
+        pillJellyScale.animateTo(1f, spring(dampingRatio = 0.86f, stiffness = 1100f))
+    }
+
+    val artwork by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, artworkB64) {
+        value = withContext(Dispatchers.Default) {
+            artworkB64?.let { encoded ->
+                runCatching {
+                    val bytes = Base64.decode(encoded, Base64.DEFAULT)
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                }.getOrNull()
+            }
         }
     }
 
@@ -181,13 +209,16 @@ fun GlobalProgressOverlay(
         visible = shouldShow,
         enter = slideInVertically(
             initialOffsetY = { -it - 100 },
-            animationSpec = spring(dampingRatio = 0.72f, stiffness = 180f)
-        ) + fadeIn(animationSpec = tween(300)) + scaleIn(
-            initialScale = 0.8f,
-            animationSpec = spring(dampingRatio = 0.72f, stiffness = 180f)
+            animationSpec = spring(dampingRatio = 0.9f, stiffness = 520f)
+        ) + fadeIn(animationSpec = tween(190, easing = FastOutSlowInEasing)) + scaleIn(
+            initialScale = 0.94f,
+            animationSpec = spring(dampingRatio = 0.88f, stiffness = 520f)
         ),
-        exit = slideOutVertically(targetOffsetY = { -it - 100 }, animationSpec = tween(250)) +
-            fadeOut(animationSpec = tween(250)) + scaleOut(targetScale = 0.8f, animationSpec = tween(250)),
+        exit = slideOutVertically(
+            targetOffsetY = { -it - 100 },
+            animationSpec = tween(210, easing = FastOutSlowInEasing)
+        ) + fadeOut(animationSpec = tween(170, easing = FastOutSlowInEasing)) +
+            scaleOut(targetScale = 0.97f, animationSpec = tween(170, easing = FastOutSlowInEasing)),
         modifier = modifier.fillMaxSize()
     ) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -205,24 +236,24 @@ fun GlobalProgressOverlay(
 
             val cornerRadius by animateDpAsState(
                 targetValue = if (isExpanded) 30.dp else 36.dp,
-                animationSpec = spring(dampingRatio = 0.82f, stiffness = 220f),
+                animationSpec = spring(dampingRatio = 0.9f, stiffness = 520f),
                 label = "transfer_pill_corner_radius"
             )
             val availableWidth = (maxWidth - 32.dp).coerceAtLeast(1.dp)
             val availableHeight = (maxHeight - 64.dp).coerceAtLeast(1.dp)
             val pillWidth by animateDpAsState(
                 targetValue = (if (isExpanded) 320.dp else 270.dp).coerceAtMost(availableWidth),
-                animationSpec = spring(dampingRatio = 0.82f, stiffness = 220f),
+                animationSpec = spring(dampingRatio = 0.9f, stiffness = 520f),
                 label = "transfer_pill_width"
             )
             val pillHeight by animateDpAsState(
-                targetValue = (if (isExpanded) 320.dp else 68.dp).coerceAtMost(availableHeight),
-                animationSpec = spring(dampingRatio = 0.82f, stiffness = 220f),
+                targetValue = (if (isExpanded) 320.dp else if (pendingConnectionRequest != null) 88.dp else 68.dp).coerceAtMost(availableHeight),
+                animationSpec = spring(dampingRatio = 0.9f, stiffness = 520f),
                 label = "transfer_pill_height"
             )
             val pillColor by animateColorAsState(
                 targetValue = if (isExpanded) MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.98f) else Color.White,
-                animationSpec = tween(220),
+                animationSpec = tween(240, easing = FastOutSlowInEasing),
                 label = "transfer_pill_color"
             )
 
@@ -233,8 +264,12 @@ fun GlobalProgressOverlay(
                         .height(pillHeight)
                         .shadow(20.dp, RoundedCornerShape(cornerRadius))
                         .clip(RoundedCornerShape(cornerRadius))
+                        .graphicsLayer {
+                            scaleX = pillJellyScale.value
+                            scaleY = pillJellyScale.value
+                        }
                         .then(if (isExpanded) Modifier else Modifier.clickable {
-                            if (canExpandTransfer) isExpanded = true
+                            if (canExpandPill) isExpanded = true
                         }),
                     shape = RoundedCornerShape(cornerRadius),
                     color = pillColor,
@@ -243,27 +278,35 @@ fun GlobalProgressOverlay(
                     AnimatedContent(
                         targetState = isExpanded,
                         transitionSpec = {
-                            (fadeIn(tween(180)) + scaleIn(initialScale = 0.96f, animationSpec = spring())) togetherWith
-                                (fadeOut(tween(120)) + scaleOut(targetScale = 0.98f, animationSpec = tween(120))) using
-                                SizeTransform(clip = false) { _, _ -> spring(dampingRatio = 0.82f, stiffness = 220f) }
+                            (fadeIn(tween(170, easing = FastOutSlowInEasing)) + scaleIn(initialScale = 0.985f, animationSpec = spring(dampingRatio = 0.92f, stiffness = 650f))) togetherWith
+                                (fadeOut(tween(110, easing = FastOutSlowInEasing)) + scaleOut(targetScale = 0.99f, animationSpec = tween(110, easing = FastOutSlowInEasing))) using
+                                SizeTransform(clip = false) { _, _ -> spring(dampingRatio = 0.9f, stiffness = 520f) }
                         },
                         label = "transfer_pill_content"
                     ) { expanded ->
                         if (expanded) {
-                            TransferDetailsContent(
-                                progress = transferProgress,
-                                completedCount = completedTransferCount,
-                                totalCount = totalTransferCount,
-                                title = currentTitle,
-                                peerName = senderName,
-                                artwork = artwork,
-                                isReceiving = isReceiving,
-                                isTapDetected = isTapDetected,
-                                isPreparing = isConnectedPreparing,
-                                completed = isTransferComplete,
-                                failed = showConnectionErrorForUi,
-                                onCollapse = { isExpanded = false }
-                            )
+                            if (pendingConnectionRequest != null) {
+                                ConnectionRequestDetails(
+                                    request = pendingConnectionRequest,
+                                    onAccept = viewModel::acceptConnection,
+                                    onReject = viewModel::rejectConnection
+                                )
+                            } else {
+                                TransferDetailsContent(
+                                    progress = transferProgress,
+                                    completedCount = completedTransferCount,
+                                    totalCount = totalTransferCount,
+                                    title = currentTitle,
+                                    peerName = senderName,
+                                    artwork = artwork,
+                                    isReceiving = isReceiving,
+                                    isTapDetected = isTapDetected,
+                                    isPreparing = isConnectedPreparing,
+                                    completed = isTransferComplete,
+                                    failed = showConnectionErrorForUi,
+                                    onCollapse = { isExpanded = false }
+                                )
+                            }
                         } else {
                             ProgressPill(
                                 isTransferring = isTransferring,
@@ -281,7 +324,8 @@ fun GlobalProgressOverlay(
                                 completed = isTransferComplete,
                                 failed = showConnectionErrorForUi,
                                 request = connectionRequest,
-                                onAccept = viewModel::acceptConnection
+                                onAccept = viewModel::acceptConnection,
+                                onReject = viewModel::rejectConnection
                             )
                         }
                     }
@@ -308,25 +352,31 @@ private fun ProgressPill(
     completed: Boolean,
     failed: Boolean,
     request: ConnectionRequest?,
-    onAccept: (ConnectionRequest) -> Unit
+    onAccept: (ConnectionRequest) -> Unit,
+    onReject: (ConnectionRequest) -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = if (request != null) 6.dp else 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
             when {
                 request != null -> {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.5.dp)
-                    Column {
+                    Column(Modifier.weight(1f)) {
                         Text(
                             "${request.endpointName} wants to send",
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        TextButton(onClick = { onAccept(request) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
-                            Text("Accept")
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = { onReject(request) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 0.dp)) {
+                                Text("Decline")
+                            }
+                            TextButton(onClick = { onAccept(request) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 0.dp)) {
+                                Text("Accept")
+                            }
                         }
                     }
                 }
@@ -475,7 +525,14 @@ private fun TransferDetailsContent(
         }
         Spacer(Modifier.height(16.dp))
         Box(Modifier.size(136.dp), contentAlignment = Alignment.Center) {
-            if (artwork != null) {
+            if (failed) {
+                Box(
+                    Modifier.size(116.dp).clip(CircleShape).background(MaterialTheme.colorScheme.errorContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(52.dp))
+                }
+            } else if (!isTapDetected && !isPreparing && artwork != null) {
                 Image(
                     bitmap = artwork,
                     contentDescription = null,
@@ -490,9 +547,11 @@ private fun TransferDetailsContent(
                     Icon(Icons.Outlined.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(40.dp))
                 }
             }
-            if (completed) {
+            if (failed) {
+                // The error symbol fills the artwork slot above; there is no active progress ring.
+            } else if (completed) {
                 Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.align(Alignment.BottomEnd).size(36.dp).background(MaterialTheme.colorScheme.surface, CircleShape).padding(6.dp))
-            } else if (isPreparing) {
+            } else if (isTapDetected || isPreparing) {
                 CircularProgressIndicator(modifier = Modifier.fillMaxSize(), strokeWidth = 5.dp)
             } else {
                 CircularProgressIndicator(
@@ -506,6 +565,7 @@ private fun TransferDetailsContent(
         Spacer(Modifier.height(20.dp))
         Text(
             when {
+                failed -> "Tap the devices again to retry the connection"
                 completed && isReceiving -> "Music received from ${peerName ?: "Device"}"
                 completed -> "Transfer sent successfully"
                 isTapDetected -> "Connecting to nearby device"
@@ -518,11 +578,40 @@ private fun TransferDetailsContent(
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            if (totalCount > 1) "$totalCount items" else title.orEmpty().ifBlank { "Transfer details" },
+            when {
+                failed || isTapDetected || isPreparing -> ""
+                totalCount > 1 -> "$totalCount items"
+                else -> title.orEmpty().ifBlank { "Transfer details" }
+            },
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun ConnectionRequestDetails(
+    request: ConnectionRequest,
+    onAccept: (ConnectionRequest) -> Unit,
+    onReject: (ConnectionRequest) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Transfer request", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+        Text(
+            "${request.endpointName} wants to send music",
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+            TextButton(onClick = { onReject(request) }) { Text("Decline") }
+            Button(onClick = { onAccept(request) }) { Text("Accept") }
+        }
     }
 }

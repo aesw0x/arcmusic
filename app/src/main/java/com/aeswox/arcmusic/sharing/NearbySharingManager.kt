@@ -431,6 +431,7 @@ class NearbySharingManager @Inject constructor(
                 // leaves expectedNfcToken intact for onEndpointFound to auto-retry.
                 expectedNfcToken = null
                 activeEndpointId = endpointId
+                resetTransferPresentationForNewConnection()
                 _sharingState.value = SharingState.CONNECTED
                 passiveAdvertising = false
                 passiveDiscovering = false
@@ -582,6 +583,9 @@ class NearbySharingManager @Inject constructor(
         val file = File(track.filePath)
         if (!file.exists()) return
 
+        // This field is also used by the global progress pill; publish the active sender-side track.
+        _currentTransferTitle.value = track.title
+
         val filePayload = Payload.fromFile(file)
         filePayloadIds.add(filePayload.id)
 
@@ -640,6 +644,16 @@ class NearbySharingManager @Inject constructor(
                 // Artwork is optional — ignore extraction failures silently
             }
         }
+    }
+
+    /** Reset display-only fields at the start of a new session without changing transfer bookkeeping. */
+    private fun resetTransferPresentationForNewConnection() {
+        _transferProgress.value = 0f
+        _completedTransferCount.value = 0
+        _totalTransferCount.value = 0
+        _currentTransferTitle.value = null
+        _currentTransferArtworkB64.value = null
+        _isReceiving.value = false
     }
 
     private val endpointDiscoveryCallback = object : EndpointDiscoveryCallback() {
