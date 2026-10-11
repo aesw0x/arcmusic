@@ -289,6 +289,12 @@ class NearbySharingManager @Inject constructor(
                                 _currentTransferArtworkB64.value = json.optString("thumbnailB64")
                             }
                         }
+                    } else if (json.optString("type") == "thumbnail_update") {
+                        // Artwork delivered asynchronously after the file transfer has already started
+                        _currentTransferArtworkB64.value = json.optString("thumbnailB64")
+                        // thumbnail_update is a fire-and-forget bytes payload — remove it from
+                        // activePayloads so it doesn't block the completion check.
+                        activePayloads.remove(payload.id)
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -573,57 +579,65 @@ class NearbySharingManager @Inject constructor(
 
     private fun sendTrackFile(endpointId: String, track: com.aeswox.arcmusic.db.entities.Track) {
         val file = File(track.filePath)
-        if (file.exists()) {
-            val filePayload = Payload.fromFile(file)
-            filePayloadIds.add(filePayload.id) // register so progress is tracked as a file payload
-            
-            var thumbnailB64: String? = null
+        if (!file.exists()) return
+
+        val filePayload = Payload.fromFile(file)
+        filePayloadIds.add(filePayload.id)
+
+        // Send metadata (no thumbnail) + the file payload right away so Nearby starts
+        // the actual transfer immediately. MediaMetadataRetriever.setDataSource() can block
+        // 3-6 s on large FLAC/ALAC files — running it here used to delay the visible transfer
+        // start by that entire amount on top of the 2-3 s Nearby handshake.
+        val metadata = JSONObject().apply {
+            put("payloadId", filePayload.id)
+            put("type", "track")
+            put("title", track.title)
+            put("ext", file.extension)
+            put("filename", file.name)
+            put("totalCount", totalFileCount)
+        }
+        val metadataPayload = Payload.fromBytes(metadata.toString().toByteArray(Charsets.UTF_8))
+        activePayloads.add(metadataPayload.id)
+        activePayloads.add(filePayload.id)
+        _sharingState.value = SharingState.TRANSFERRING
+
+        connectionsClient.sendPayload(endpointId, metadataPayload)
+        connectionsClient.sendPayload(endpointId, filePayload)
+
+        // Extract artwork in the background and deliver it as a supplemental payload.
+        // The receiver handles "thumbnail_update" to update its UI without affecting transfer
+        // bookkeeping (it is not tracked in activePayloads / filePayloadIds).
+        coroutineScope.launch {
             try {
                 val mmr = android.media.MediaMetadataRetriever()
                 mmr.setDataSource(file.absolutePath)
                 val picture = mmr.embeddedPicture
-                if (picture != null) {
+                mmr.release()
+                if (picture != null && activeEndpointId == endpointId) {
                     val bmp = android.graphics.BitmapFactory.decodeByteArray(picture, 0, picture.size)
-                    // Scale to a higher resolution (400x400) for crispness on completion cards
                     val scaled = android.graphics.Bitmap.createScaledBitmap(bmp, 400, 400, true)
                     val out = java.io.ByteArrayOutputStream()
                     scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 65, out)
-                    val bytes = out.toByteArray()
-                    if (bytes.size < 24000) {
-                        // Base64 overhead is ~33%. 24KB bytes -> ~32KB string.
-                        // Nearby connections MAX_BYTES_DATA_SIZE limit is 32768.
-                        thumbnailB64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                    val thumbnailB64 = if (out.size() < 24000) {
+                        android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
                     } else {
-                        // Fallback to a smaller size if compression wasn't enough to fit the limit
                         out.reset()
                         val smaller = android.graphics.Bitmap.createScaledBitmap(bmp, 200, 200, true)
                         smaller.compress(android.graphics.Bitmap.CompressFormat.JPEG, 50, out)
-                        thumbnailB64 = android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+                        android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
                     }
+                    val thumbUpdate = JSONObject().apply {
+                        put("type", "thumbnail_update")
+                        put("thumbnailB64", thumbnailB64)
+                    }
+                    connectionsClient.sendPayload(
+                        endpointId,
+                        Payload.fromBytes(thumbUpdate.toString().toByteArray(Charsets.UTF_8))
+                    )
                 }
-                mmr.release()
             } catch (e: Exception) {
-                // Ignore extraction failures
+                // Artwork is optional — ignore extraction failures silently
             }
-            
-            val metadata = JSONObject().apply {
-                put("payloadId", filePayload.id)
-                put("type", "track")
-                put("title", track.title)
-                put("ext", file.extension)
-                put("filename", file.name)
-                put("totalCount", totalFileCount)
-                if (thumbnailB64 != null) {
-                    put("thumbnailB64", thumbnailB64)
-                }
-            }
-            val metadataPayload = Payload.fromBytes(metadata.toString().toByteArray(Charsets.UTF_8))
-            activePayloads.add(metadataPayload.id)
-            activePayloads.add(filePayload.id)
-            _sharingState.value = SharingState.TRANSFERRING
-            
-            connectionsClient.sendPayload(endpointId, metadataPayload)
-            connectionsClient.sendPayload(endpointId, filePayload)
         }
     }
 
