@@ -5,7 +5,11 @@ import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.nfc.tech.IsoDep
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.Log
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class NfcShareService : HostApduService() {
 
@@ -13,6 +17,33 @@ class NfcShareService : HostApduService() {
         private const val TAG = "NfcShareService"
         @Volatile
         var currentToken: String? = null
+
+        private val _tapDetectedAtElapsedRealtime = MutableStateFlow<Long?>(null)
+        val tapDetectedAtElapsedRealtime: StateFlow<Long?> = _tapDetectedAtElapsedRealtime.asStateFlow()
+        private val _connectionFailedAtElapsedRealtime = MutableStateFlow<Long?>(null)
+        val connectionFailedAtElapsedRealtime: StateFlow<Long?> = _connectionFailedAtElapsedRealtime.asStateFlow()
+
+        fun markTapDetected() {
+            _tapDetectedAtElapsedRealtime.value = SystemClock.elapsedRealtime()
+        }
+
+        @Synchronized
+        fun clearTapDetected(expectedTimestamp: Long) {
+            if (_tapDetectedAtElapsedRealtime.value == expectedTimestamp) {
+                _tapDetectedAtElapsedRealtime.value = null
+            }
+        }
+
+        fun markConnectionFailed() {
+            _connectionFailedAtElapsedRealtime.value = SystemClock.elapsedRealtime()
+        }
+
+        @Synchronized
+        fun clearConnectionFailed(expectedTimestamp: Long) {
+            if (_connectionFailedAtElapsedRealtime.value == expectedTimestamp) {
+                _connectionFailedAtElapsedRealtime.value = null
+            }
+        }
         
         // Select APDU instruction
         private val SELECT_APDU_HEADER = byteArrayOf(
@@ -34,6 +65,7 @@ class NfcShareService : HostApduService() {
         fun readerCallback(onTokenRead: (String) -> Unit): NfcAdapter.ReaderCallback =
             NfcAdapter.ReaderCallback { tag ->
                 val token = readToken(tag) ?: return@ReaderCallback
+                markTapDetected()
                 onTokenRead(token)
             }
 
@@ -78,6 +110,7 @@ class NfcShareService : HostApduService() {
             if (isSelect) {
                 val token = currentToken
                 if (token != null) {
+                    markTapDetected()
                     val tokenBytes = token.toByteArray(Charsets.UTF_8)
                     return tokenBytes + SUCCESS_SW
                 }

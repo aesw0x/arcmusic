@@ -444,6 +444,7 @@ class NearbySharingManager @Inject constructor(
             } else {
                 activeEndpointId = null
                 _sharingState.value = SharingState.ERROR
+                NfcShareService.markConnectionFailed()
                 updateTransferService(SharingState.ERROR)
                 ensurePassiveListening()
             }
@@ -744,6 +745,7 @@ class NearbySharingManager @Inject constructor(
             .addOnFailureListener {
                 pendingEndpointId = null
                 _sharingState.value = SharingState.ERROR
+                NfcShareService.markConnectionFailed()
                 Log.e("NearbySharingManager", "Failed to request connection", it)
                 ensurePassiveListening()
             }

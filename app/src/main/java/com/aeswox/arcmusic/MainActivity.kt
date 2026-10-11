@@ -1439,7 +1439,7 @@ class MainActivity : ComponentActivity() {
                                                 )
                                             ),
                                             exit = slideOutVertically(
-                                                targetOffsetY = { fullHeight -> fullHeight / 2 },
+                                                targetOffsetY = { fullHeight -> fullHeight },
                                                 animationSpec = spring(
                                                     dampingRatio = Spring.DampingRatioNoBouncy,
                                                     stiffness = Spring.StiffnessLow

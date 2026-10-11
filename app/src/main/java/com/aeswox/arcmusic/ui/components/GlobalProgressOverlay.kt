@@ -5,6 +5,7 @@ import android.util.Base64
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -33,10 +34,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -65,10 +69,15 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import com.aeswox.arcmusic.db.MediaScannerManager
 import com.aeswox.arcmusic.sharing.ConnectionRequest
+import com.aeswox.arcmusic.sharing.NfcShareService
 import com.aeswox.arcmusic.sharing.NearbySharingManager
 import com.aeswox.arcmusic.sharing.SharingState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.delay
+
+private const val NFC_TAP_PILL_TIMEOUT_MS = 30_000L
+private const val CONNECTION_ERROR_VISIBLE_MS = 2_500L
 
 @HiltViewModel
 class GlobalOverlayViewModel @Inject constructor(
@@ -106,22 +115,57 @@ fun GlobalProgressOverlay(
     val isReceiving by viewModel.isReceiving.collectAsState()
     val senderName by viewModel.incomingSenderName.collectAsState()
     val connectionRequest by viewModel.connectionRequest.collectAsState()
+    val tapDetectedAt by NfcShareService.tapDetectedAtElapsedRealtime.collectAsState()
+    val connectionFailedAt by NfcShareService.connectionFailedAtElapsedRealtime.collectAsState()
+    var showConnectionError by remember { mutableStateOf(false) }
+
+    LaunchedEffect(connectionFailedAt) {
+        val failedAt = connectionFailedAt ?: return@LaunchedEffect
+        showConnectionError = true
+        delay(CONNECTION_ERROR_VISIBLE_MS)
+        showConnectionError = false
+        NfcShareService.clearConnectionFailed(failedAt)
+    }
+
+    LaunchedEffect(connectionFailedAt, tapDetectedAt) {
+        val detectedAt = tapDetectedAt
+        if (connectionFailedAt != null && detectedAt != null) {
+            NfcShareService.clearTapDetected(detectedAt)
+        }
+    }
 
     val isScanning = scanProgress.isRunning
     val isTransferring = sharingState == SharingState.TRANSFERRING
-    val isReceiveComplete = isReceiving && sharingState == SharingState.COMPLETED
-    val hasIncomingActivity = (isReceiving && isTransferring) || isReceiveComplete || connectionRequest != null
+    val isTransferComplete = sharingState == SharingState.COMPLETED
+    val isConnectedPreparing = sharingState == SharingState.CONNECTED
+    val connectionStarted = isConnectedPreparing || isTransferring || isTransferComplete
+    val isTapDetected = tapDetectedAt?.let {
+        android.os.SystemClock.elapsedRealtime() - it < NFC_TAP_PILL_TIMEOUT_MS
+    } == true && !connectionStarted
+    val hasTransferActivity = isTapDetected || isConnectedPreparing || isTransferring || isTransferComplete
+    val showConnectionErrorForUi = showConnectionError && tapDetectedAt == null
+
+    LaunchedEffect(tapDetectedAt, connectionStarted) {
+        val detectedAt = tapDetectedAt ?: return@LaunchedEffect
+        if (connectionStarted) {
+            NfcShareService.clearTapDetected(detectedAt)
+        } else {
+            val elapsed = android.os.SystemClock.elapsedRealtime() - detectedAt
+            delay((NFC_TAP_PILL_TIMEOUT_MS - elapsed).coerceAtLeast(0L))
+            NfcShareService.clearTapDetected(detectedAt)
+        }
+    }
 
     // ReceiveScreen owns its full-screen card. Other routes use this shared overlay.
     val isExcludedRoute = currentRoute == "media_management" ||
         currentRoute == "receive" ||
         currentRoute?.startsWith("share") == true
-    val shouldShow = (isScanning || isTransferring || hasIncomingActivity) && !isExcludedRoute
-    val canExpandReceive = hasIncomingActivity && connectionRequest == null && !isExcludedRoute
+    val shouldShow = (isScanning || hasTransferActivity || connectionRequest != null || showConnectionErrorForUi) && !isExcludedRoute
+    val canExpandTransfer = hasTransferActivity && connectionRequest == null && !isExcludedRoute
     var isExpanded by remember { mutableStateOf(false) }
 
-    LaunchedEffect(canExpandReceive) {
-        if (!canExpandReceive) isExpanded = false
+    LaunchedEffect(canExpandTransfer) {
+        if (!canExpandTransfer) isExpanded = false
     }
 
     val artwork = remember(artworkB64) {
@@ -159,63 +203,87 @@ fun GlobalProgressOverlay(
                 )
             }
 
-            val cardHeight = 360.dp
-            val expandedTop = ((maxHeight - cardHeight) / 2).coerceAtLeast(56.dp)
-            val topOffset by animateDpAsState(
-                targetValue = if (isExpanded) expandedTop else 48.dp,
-                animationSpec = spring(dampingRatio = 0.82f, stiffness = 220f),
-                label = "receive_overlay_position"
-            )
             val cornerRadius by animateDpAsState(
-                targetValue = if (isExpanded) 32.dp else 28.dp,
-                animationSpec = spring(stiffness = 240f),
-                label = "receive_overlay_shape"
+                targetValue = if (isExpanded) 30.dp else 36.dp,
+                animationSpec = spring(dampingRatio = 0.82f, stiffness = 220f),
+                label = "transfer_pill_corner_radius"
+            )
+            val availableWidth = (maxWidth - 32.dp).coerceAtLeast(1.dp)
+            val availableHeight = (maxHeight - 64.dp).coerceAtLeast(1.dp)
+            val pillWidth by animateDpAsState(
+                targetValue = (if (isExpanded) 320.dp else 270.dp).coerceAtMost(availableWidth),
+                animationSpec = spring(dampingRatio = 0.82f, stiffness = 220f),
+                label = "transfer_pill_width"
+            )
+            val pillHeight by animateDpAsState(
+                targetValue = (if (isExpanded) 320.dp else 68.dp).coerceAtMost(availableHeight),
+                animationSpec = spring(dampingRatio = 0.82f, stiffness = 220f),
+                label = "transfer_pill_height"
+            )
+            val pillColor by animateColorAsState(
+                targetValue = if (isExpanded) MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.98f) else Color.White,
+                animationSpec = tween(220),
+                label = "transfer_pill_color"
             )
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = topOffset),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                AnimatedContent(
-                    targetState = isExpanded && canExpandReceive,
-                    transitionSpec = {
-                        (fadeIn(tween(180)) + scaleIn(initialScale = 0.92f, animationSpec = spring())) togetherWith
-                            (fadeOut(tween(120)) + scaleOut(targetScale = 0.96f, animationSpec = tween(120))) using
-                            SizeTransform(clip = false) { _, _ -> spring(dampingRatio = 0.82f, stiffness = 220f) }
-                    },
-                    label = "progress_pill_to_receive_card"
-                ) { expanded ->
-                    if (expanded) {
-                        IncomingTransferCard(
-                            progress = transferProgress,
-                            completedCount = completedTransferCount,
-                            totalCount = totalTransferCount,
-                            title = currentTitle,
-                            senderName = senderName,
-                            artwork = artwork,
-                            completed = isReceiveComplete,
-                            cornerRadius = cornerRadius,
-                            onDismiss = viewModel::resetSharing
-                        )
-                    } else {
-                        ProgressPill(
-                            isTransferring = isTransferring,
-                            isScanning = isScanning,
-                            scanTitle = scanProgress.phase.label,
-                            scanCurrent = scanProgress.current,
-                            scanTotal = scanProgress.total,
-                            progress = transferProgress,
-                            completedCount = completedTransferCount,
-                            totalCount = totalTransferCount,
-                            title = currentTitle,
-                            completed = isReceiveComplete,
-                            request = connectionRequest,
-                            canExpandReceive = canExpandReceive,
-                            onExpand = { isExpanded = true },
-                            onAccept = viewModel::acceptConnection
-                        )
+            Column(Modifier.fillMaxWidth().padding(top = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Surface(
+                    modifier = Modifier
+                        .width(pillWidth)
+                        .height(pillHeight)
+                        .shadow(20.dp, RoundedCornerShape(cornerRadius))
+                        .clip(RoundedCornerShape(cornerRadius))
+                        .then(if (isExpanded) Modifier else Modifier.clickable {
+                            if (canExpandTransfer) isExpanded = true
+                        }),
+                    shape = RoundedCornerShape(cornerRadius),
+                    color = pillColor,
+                    contentColor = if (isExpanded) MaterialTheme.colorScheme.onSurface else Color.Black
+                ) {
+                    AnimatedContent(
+                        targetState = isExpanded,
+                        transitionSpec = {
+                            (fadeIn(tween(180)) + scaleIn(initialScale = 0.96f, animationSpec = spring())) togetherWith
+                                (fadeOut(tween(120)) + scaleOut(targetScale = 0.98f, animationSpec = tween(120))) using
+                                SizeTransform(clip = false) { _, _ -> spring(dampingRatio = 0.82f, stiffness = 220f) }
+                        },
+                        label = "transfer_pill_content"
+                    ) { expanded ->
+                        if (expanded) {
+                            TransferDetailsContent(
+                                progress = transferProgress,
+                                completedCount = completedTransferCount,
+                                totalCount = totalTransferCount,
+                                title = currentTitle,
+                                peerName = senderName,
+                                artwork = artwork,
+                                isReceiving = isReceiving,
+                                isTapDetected = isTapDetected,
+                                isPreparing = isConnectedPreparing,
+                                completed = isTransferComplete,
+                                failed = showConnectionErrorForUi,
+                                onCollapse = { isExpanded = false }
+                            )
+                        } else {
+                            ProgressPill(
+                                isTransferring = isTransferring,
+                                isTapDetected = isTapDetected,
+                                isPreparing = isConnectedPreparing,
+                                isScanning = isScanning,
+                                isReceiving = isReceiving,
+                                scanTitle = scanProgress.phase.label,
+                                scanCurrent = scanProgress.current,
+                                scanTotal = scanProgress.total,
+                                progress = transferProgress,
+                                completedCount = completedTransferCount,
+                                totalCount = totalTransferCount,
+                                title = currentTitle,
+                                completed = isTransferComplete,
+                                failed = showConnectionErrorForUi,
+                                request = connectionRequest,
+                                onAccept = viewModel::acceptConnection
+                            )
+                        }
                     }
                 }
             }
@@ -226,7 +294,10 @@ fun GlobalProgressOverlay(
 @Composable
 private fun ProgressPill(
     isTransferring: Boolean,
+    isTapDetected: Boolean,
+    isPreparing: Boolean,
     isScanning: Boolean,
+    isReceiving: Boolean,
     scanTitle: String,
     scanCurrent: Int,
     scanTotal: Int,
@@ -235,25 +306,15 @@ private fun ProgressPill(
     totalCount: Int,
     title: String?,
     completed: Boolean,
+    failed: Boolean,
     request: ConnectionRequest?,
-    canExpandReceive: Boolean,
-    onExpand: () -> Unit,
     onAccept: (ConnectionRequest) -> Unit
 ) {
-    val pillClick = if (canExpandReceive) Modifier.clickable(onClick = onExpand) else Modifier
-    Surface(
-        modifier = pillClick
-            .shadow(16.dp, CircleShape, spotColor = Color.Black.copy(alpha = 0.15f))
-            .clip(CircleShape),
-        color = Color.White,
-        contentColor = Color.Black,
-        shape = CircleShape
+    Row(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
             when {
                 request != null -> {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.5.dp)
@@ -269,16 +330,37 @@ private fun ProgressPill(
                         }
                     }
                 }
+                failed -> {
+                    Icon(Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                    Column {
+                        Text("Couldn’t connect", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                        Text("Try tapping the devices again", style = MaterialTheme.typography.bodySmall, color = Color.Black.copy(alpha = 0.7f))
+                    }
+                }
+                isTapDetected -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 2.5.dp
+                    )
+                    Column {
+                        Text("Tap detected", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                        Text("Connecting to nearby device…", style = MaterialTheme.typography.bodySmall, color = Color.Black.copy(alpha = 0.7f))
+                    }
+                }
                 completed -> {
                     Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Column {
-                        Text("Music received", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                        Text(
+                            if (isReceiving) "Music received" else "Transfer complete",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                        )
                         Text("Tap to view details", style = MaterialTheme.typography.bodySmall, color = Color.Black.copy(alpha = 0.7f))
                     }
                 }
                 isTransferring -> {
                     CircularProgressIndicator(
-                        progress = { progress },
+                        progress = { progress.coerceIn(0f, 1f) },
                         modifier = Modifier.size(24.dp),
                         color = MaterialTheme.colorScheme.primary,
                         strokeWidth = 2.5.dp,
@@ -286,13 +368,17 @@ private fun ProgressPill(
                     )
                     Column {
                         Text(
-                            if (title.isNullOrBlank()) "Receiving files…" else "Receiving ${title}",
+                            when {
+                                title.isNullOrBlank() -> if (isReceiving) "Receiving files…" else "Sending files…"
+                                isReceiving -> "Receiving $title"
+                                else -> "Sending $title"
+                            },
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            if (totalCount > 0) "$completedCount of $totalCount files" else "${(progress * 100).toInt()}%",
+                            if (totalCount > 0) "$completedCount of $totalCount files" else "Transfer in progress",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.Black.copy(alpha = 0.7f)
                         )
@@ -313,6 +399,17 @@ private fun ProgressPill(
                         }
                     }
                 }
+                isPreparing -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        strokeWidth = 2.5.dp
+                    )
+                    Column {
+                        Text("Preparing transfer…", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
+                        Text("Connected", style = MaterialTheme.typography.bodySmall, color = Color.Black.copy(alpha = 0.7f))
+                    }
+                }
                 else -> {
                     CircularProgressIndicator(
                         progress = { progress },
@@ -324,123 +421,108 @@ private fun ProgressPill(
                     Column {
                         Text("Transferring Media", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
                         Text(
-                            if (totalCount > 0) "$completedCount of $totalCount files" else "${(progress * 100).toInt()}%",
+                            if (totalCount > 0) "$completedCount of $totalCount files" else "Transfer in progress",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.Black.copy(alpha = 0.7f)
                         )
                     }
                 }
             }
-        }
     }
 }
 
 @Composable
-private fun IncomingTransferCard(
+private fun TransferDetailsContent(
     progress: Float,
     completedCount: Int,
     totalCount: Int,
     title: String?,
-    senderName: String?,
+    peerName: String?,
     artwork: androidx.compose.ui.graphics.ImageBitmap?,
+    isReceiving: Boolean,
+    isTapDetected: Boolean,
+    isPreparing: Boolean,
     completed: Boolean,
-    cornerRadius: androidx.compose.ui.unit.Dp,
-    onDismiss: () -> Unit
+    failed: Boolean,
+    onCollapse: () -> Unit
 ) {
     val animatedProgress by animateFloatAsState(
         targetValue = progress,
         animationSpec = tween(400, easing = LinearOutSlowInEasing),
         label = "incoming_transfer_progress"
     )
-    Surface(
-        modifier = Modifier
-            .width(300.dp)
-            .height(360.dp)
-            .shadow(20.dp, RoundedCornerShape(cornerRadius))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) { },
-        shape = RoundedCornerShape(cornerRadius),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.94f),
-        contentColor = MaterialTheme.colorScheme.onSurface
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(24.dp).verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Box(Modifier.fillMaxSize()) {
-            if (completed && artwork != null) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                when {
+                    completed && isReceiving -> "Transfer complete"
+                    completed -> "Sent successfully"
+                    failed -> "Couldn’t connect"
+                    isTapDetected -> "Tap detected"
+                    isPreparing -> "Preparing transfer…"
+                    isReceiving -> "Receiving from ${peerName ?: "Device"}"
+                    else -> "Sending to ${peerName ?: "Device"}"
+                },
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            TextButton(onClick = onCollapse) { Text("Done") }
+        }
+        Spacer(Modifier.height(16.dp))
+        Box(Modifier.size(136.dp), contentAlignment = Alignment.Center) {
+            if (artwork != null) {
                 Image(
                     bitmap = artwork,
                     contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.size(116.dp).clip(CircleShape),
                     contentScale = ContentScale.Crop
                 )
-                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)))
-            }
-
-            Column(
-                modifier = Modifier.fillMaxSize().padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                if (completed) {
-                    Box(
-                        modifier = Modifier.size(64.dp).clip(CircleShape).background(Color.White),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF1E88E5), modifier = Modifier.size(36.dp))
-                    }
-                    Spacer(Modifier.height(20.dp))
-                    Text(
-                        "Music received from ${senderName ?: "Device"}",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = if (artwork != null) Color.White else MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(Modifier.weight(1f))
-                    TextButton(onClick = onDismiss) { Text("Close") }
-                } else {
-                    Box(Modifier.size(140.dp), contentAlignment = Alignment.Center) {
-                        if (artwork != null) {
-                            Image(
-                                bitmap = artwork,
-                                contentDescription = null,
-                                modifier = Modifier.size(120.dp).clip(CircleShape),
-                                contentScale = ContentScale.Crop
-                            )
-                            Box(Modifier.size(120.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.4f)))
-                        } else {
-                            Box(
-                                Modifier.size(120.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Outlined.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), modifier = Modifier.size(40.dp))
-                            }
-                        }
-                        CircularProgressIndicator(
-                            progress = { animatedProgress },
-                            modifier = Modifier.fillMaxSize(),
-                            strokeWidth = 6.dp,
-                            color = MaterialTheme.colorScheme.primary,
-                            trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                        )
-                        Text(
-                            "${(animatedProgress * 100).toInt()}%",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = if (artwork != null) Color.White else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    Spacer(Modifier.height(24.dp))
-                    Text(
-                        if (totalCount > 1) "Receiving ${completedCount + 1} of $totalCount…" else "Receiving…",
-                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        if (totalCount > 1) "Multiple items" else title.orEmpty(),
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+            } else {
+                Box(
+                    Modifier.size(116.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Outlined.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(40.dp))
                 }
             }
+            if (completed) {
+                Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.align(Alignment.BottomEnd).size(36.dp).background(MaterialTheme.colorScheme.surface, CircleShape).padding(6.dp))
+            } else if (isPreparing) {
+                CircularProgressIndicator(modifier = Modifier.fillMaxSize(), strokeWidth = 5.dp)
+            } else {
+                CircularProgressIndicator(
+                    progress = { animatedProgress.coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxSize(),
+                    strokeWidth = 5.dp,
+                    trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                )
+            }
         }
+        Spacer(Modifier.height(20.dp))
+        Text(
+            when {
+                completed && isReceiving -> "Music received from ${peerName ?: "Device"}"
+                completed -> "Transfer sent successfully"
+                isTapDetected -> "Connecting to nearby device"
+                isPreparing -> "Waiting for transfer to start"
+                totalCount > 0 -> "${if (isReceiving) "Receiving" else "Sending"} ${completedCount + 1} of $totalCount"
+                else -> if (isReceiving) "Receiving music" else "Sending music"
+            },
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            if (totalCount > 1) "$totalCount items" else title.orEmpty().ifBlank { "Transfer details" },
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(Modifier.height(16.dp))
     }
 }
