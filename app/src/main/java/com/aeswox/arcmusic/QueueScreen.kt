@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.aeswox.arcmusic.db.entities.Track
 import com.aeswox.arcmusic.ui.animations.jellyClick
+import com.aeswox.arcmusic.ui.haptics.AppHaptics
 import com.aeswox.arcmusic.ui.components.*
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -102,7 +103,11 @@ fun QueueItemRow(
                     .size(20.dp)
                     .pointerInput(Unit) {
                         detectVerticalDragGestures(
+                            onDragStart = {
+                                AppHaptics.grab()
+                            },
                             onDragEnd = {
+                                AppHaptics.drop()
                                 val itemsMoved = (offsetY / rowHeightPx).roundToInt()
                                 if (itemsMoved != 0) onMove(itemsMoved)
                                 offsetY = 0f
@@ -110,7 +115,12 @@ fun QueueItemRow(
                             onDragCancel = { offsetY = 0f },
                             onVerticalDrag = { change, dragAmount ->
                                 change.consume()
+                                val prevSlot = (offsetY / rowHeightPx).roundToInt()
                                 offsetY += dragAmount
+                                val newSlot = (offsetY / rowHeightPx).roundToInt()
+                                if (newSlot != prevSlot) {
+                                    AppHaptics.tick()
+                                }
                             }
                         )
                     }

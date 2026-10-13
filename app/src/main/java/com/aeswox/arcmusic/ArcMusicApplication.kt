@@ -9,6 +9,7 @@ import com.aeswox.arcmusic.data.SettingsRepository
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -16,6 +17,23 @@ class ArcMusicApplication : Application(), ImageLoaderFactory {
 
     @Inject
     lateinit var settingsRepository: SettingsRepository
+
+    override fun onCreate() {
+        super.onCreate()
+        com.aeswox.arcmusic.ui.haptics.AppHaptics.init(this)
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
+            launch {
+                settingsRepository.hapticsEnabled.collect {
+                    com.aeswox.arcmusic.ui.haptics.AppHaptics.isEnabled = it
+                }
+            }
+            launch {
+                settingsRepository.hapticIntensity.collect {
+                    com.aeswox.arcmusic.ui.haptics.AppHaptics.intensity = it
+                }
+            }
+        }
+    }
 
     override fun newImageLoader(): ImageLoader {
         val cacheLimitMb = runBlocking {

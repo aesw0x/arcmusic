@@ -67,6 +67,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 
 import androidx.compose.ui.platform.LocalContext
+import com.aeswox.arcmusic.ui.haptics.AppHaptics
 
 
 import android.graphics.drawable.BitmapDrawable
@@ -924,6 +925,7 @@ fun ArcNowPlayingScreen(
                                     .clip(CircleShape)
                                     .clickable {
                                         songToPlay?.let { track ->
+                                            AppHaptics.favorite(!track.isFavorite)
                                             viewModel.toggleFavorite(listOf(track.id), !track.isFavorite)
                                         }
                                     },
@@ -1045,7 +1047,10 @@ fun ArcNowPlayingScreen(
 
                             // Previous
                             IconButton(
-                                onClick = { viewModel.skipToPrevious() },
+                                onClick = {
+                                    AppHaptics.click()
+                                    viewModel.skipToPrevious()
+                                },
                                 modifier = Modifier.size(52.dp)
                             ) {
                                 Icon(
@@ -1060,7 +1065,10 @@ fun ArcNowPlayingScreen(
                             Box(
                                 modifier = Modifier
                                     .size(64.dp)
-                                    .clickable { viewModel.togglePlayPause() },
+                                    .clickable {
+                                        AppHaptics.click()
+                                        viewModel.togglePlayPause()
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -1073,7 +1081,10 @@ fun ArcNowPlayingScreen(
 
                             // Next
                             IconButton(
-                                onClick = { viewModel.skipToNext() },
+                                onClick = {
+                                    AppHaptics.click()
+                                    viewModel.skipToNext()
+                                },
                                 modifier = Modifier.size(52.dp)
                             ) {
                                 Icon(
@@ -1087,6 +1098,7 @@ fun ArcNowPlayingScreen(
                             // Far Right — Queue
                             IconButton(
                                 onClick = { 
+                                    AppHaptics.click()
                                     if (showQueue) {
                                         showQueue = false
                                     } else {
@@ -1396,7 +1408,7 @@ fun ArcNowPlayingScreen(
                                 } else if (title == "Add to favorites" || title == "Remove from favorites") {
 
                                     songToPlay?.let { track ->
-
+                                        AppHaptics.favorite(!track.isFavorite)
                                         viewModel.toggleFavorite(listOf(track.id), !track.isFavorite)
 
                                     }
@@ -1855,6 +1867,7 @@ fun ScrubberAndTimer(
             .pointerInput(seekbarThumbRadius) {
                 val thumbRadiusPx = seekbarThumbRadius.dp.toPx()
                 detectTapGestures { offset ->
+                    AppHaptics.click()
                     val trackStart = thumbRadiusPx
                     val trackEnd = size.width - thumbRadiusPx
                     val trackWidth = trackEnd - trackStart
@@ -1866,18 +1879,22 @@ fun ScrubberAndTimer(
             }
             .pointerInput(seekbarThumbRadius) {
                 val thumbRadiusPx = seekbarThumbRadius.dp.toPx()
+                var lastTickProgress = 0f
                 detectHorizontalDragGestures(
                     onDragStart = { offset ->
                         isSeeking = true
+                        AppHaptics.grab()
                         val trackStart = thumbRadiusPx
                         val trackEnd = size.width - thumbRadiusPx
                         val trackWidth = trackEnd - trackStart
                         sliderPosition = if (trackWidth > 0f) {
                             ((offset.x - trackStart) / trackWidth).coerceIn(0f, 1f)
                         } else 0f
+                        lastTickProgress = sliderPosition
                     },
                     onDragEnd = {
                         isSeeking = false
+                        AppHaptics.drop()
                         viewModel.seekTo(sliderPosition)
                     },
                     onDragCancel = { isSeeking = false }
@@ -1888,6 +1905,10 @@ fun ScrubberAndTimer(
                     val trackWidth = trackEnd - trackStart
                     if (trackWidth > 0f) {
                         sliderPosition = (sliderPosition + dragAmount / trackWidth).coerceIn(0f, 1f)
+                        if (kotlin.math.abs(sliderPosition - lastTickProgress) >= 0.035f) {
+                            AppHaptics.tick()
+                            lastTickProgress = sliderPosition
+                        }
                     }
                 }
             }
@@ -2596,7 +2617,10 @@ fun ArcQueueContent(
                                         shape = RoundedCornerShape(20.dp)
                                     ) else Modifier
                                 )
-                                .clickable { viewModel.toggleRepeatMode() },
+                                .clickable {
+                                    AppHaptics.click()
+                                    viewModel.toggleRepeatMode()
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             Row(
@@ -2635,7 +2659,10 @@ fun ArcQueueContent(
                                         shape = RoundedCornerShape(20.dp)
                                     ) else Modifier
                                 )
-                                .clickable { viewModel.toggleShuffleMode() },
+                                .clickable {
+                                    AppHaptics.click()
+                                    viewModel.toggleShuffleMode()
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             Row(
@@ -2673,7 +2700,10 @@ fun ArcQueueContent(
                                         shape = RoundedCornerShape(20.dp)
                                     ) else Modifier
                                 )
-                                .clickable { viewModel.toggleAutoplay() },
+                                .clickable {
+                                    AppHaptics.click()
+                                    viewModel.toggleAutoplay()
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             Row(

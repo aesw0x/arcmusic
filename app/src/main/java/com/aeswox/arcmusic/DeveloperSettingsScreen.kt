@@ -41,6 +41,9 @@ import com.aeswox.arcmusic.ui.components.CustomHorizontalSlider
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.aeswox.arcmusic.sharing.nearbyConnectionPermissions
+import kotlin.math.roundToInt
+import com.aeswox.arcmusic.ui.haptics.AppHaptics
+import com.aeswox.arcmusic.ui.haptics.HapticIntensity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,6 +97,10 @@ fun DeveloperSettingsScreen(
     onFontScaleChange: (Float) -> Unit = {},
     immersiveModeEnabled: Boolean = false,
     onImmersiveModeEnabledChange: (Boolean) -> Unit = {},
+    hapticsEnabled: Boolean = true,
+    onHapticsEnabledChange: (Boolean) -> Unit = {},
+    hapticIntensity: HapticIntensity = HapticIntensity.MEDIUM,
+    onHapticIntensityChange: (HapticIntensity) -> Unit = {},
     nfcAlwaysListen: Boolean = false,
     onNfcAlwaysListenChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
@@ -162,6 +169,120 @@ fun DeveloperSettingsScreen(
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
+
+            // Haptic Feedback
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text(
+                                text = "Haptic Feedback",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 15.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Tactile response for controls, scrubbing & delete actions",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = hapticsEnabled,
+                            onCheckedChange = {
+                                onHapticsEnabledChange(it)
+                                AppHaptics.toggle(it)
+                            }
+                        )
+                    }
+
+                    if (hapticsEnabled) {
+                        Spacer(modifier = Modifier.height(14.dp))
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Haptic Intensity",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = hapticIntensity.label,
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        var sliderVal by remember(hapticIntensity) { mutableFloatStateOf(hapticIntensity.level.toFloat()) }
+                        Slider(
+                            value = sliderVal,
+                            onValueChange = { newVal ->
+                                sliderVal = newVal
+                                val mapped = HapticIntensity.fromLevel(newVal.roundToInt())
+                                if (mapped != hapticIntensity) {
+                                    onHapticIntensityChange(mapped)
+                                    AppHaptics.preview(mapped)
+                                }
+                            },
+                            valueRange = 0f..2f,
+                            steps = 1,
+                            colors = SliderDefaults.colors(
+                                thumbColor = MaterialTheme.colorScheme.primary,
+                                activeTrackColor = MaterialTheme.colorScheme.primary,
+                                inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Light", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Medium (Default)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Heavy", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { AppHaptics.preview(hapticIntensity) },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(vertical = 8.dp)
+                            ) {
+                                Text("Test Click", fontSize = 12.sp)
+                            }
+                            OutlinedButton(
+                                onClick = { AppHaptics.previewDestructive(hapticIntensity) },
+                                modifier = Modifier.weight(1f),
+                                contentPadding = PaddingValues(vertical = 8.dp)
+                            ) {
+                                Text("Test Delete Thud", fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            }
 
             // Accessibility
             ExpandableSettingsCard(
@@ -382,8 +503,10 @@ fun DeveloperSettingsScreen(
 
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
-                            onClick = onClearScanLog,
-                            modifier = Modifier.jellyClick { onClearScanLog() },
+                            onClick = {
+                                AppHaptics.destructive()
+                                onClearScanLog()
+                            },
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                         ) {
                             Icon(
@@ -504,7 +627,13 @@ private fun ExpandableSettingsCard(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
-                JellyIconButton(onClick = onReset, modifier = Modifier.size(32.dp)) {
+                JellyIconButton(
+                    onClick = {
+                        AppHaptics.destructive()
+                        onReset()
+                    },
+                    modifier = Modifier.size(32.dp)
+                ) {
                     Icon(imageVector = Icons.Outlined.RestartAlt, contentDescription = "Reset", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Spacer(modifier = Modifier.width(8.dp))

@@ -1162,6 +1162,8 @@ class MainActivity : ComponentActivity() {
                             val seekbarBloomDuration by viewModel.seekbarBloomDuration.collectAsState()
                             val coilDiskCacheLimitMb by viewModel.coilDiskCacheLimitMb.collectAsState()
                             val immersiveModeEnabled by viewModel.immersiveModeEnabled.collectAsState()
+                            val hapticsEnabled by viewModel.hapticsEnabled.collectAsState()
+                            val hapticIntensity by viewModel.hapticIntensity.collectAsState()
                             Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
                                 DeveloperSettingsScreen(
                                     onNavigateBack = { navController.popBackStack() },
@@ -1189,6 +1191,10 @@ class MainActivity : ComponentActivity() {
                                     onCoilDiskCacheLimitMbChange = { viewModel.setCoilDiskCacheLimitMb(it) },
                                     immersiveModeEnabled = immersiveModeEnabled,
                                     onImmersiveModeEnabledChange = { viewModel.setImmersiveModeEnabled(it) },
+                                    hapticsEnabled = hapticsEnabled,
+                                    onHapticsEnabledChange = { viewModel.setHapticsEnabled(it) },
+                                    hapticIntensity = hapticIntensity,
+                                    onHapticIntensityChange = { viewModel.setHapticIntensity(it) },
                                     nfcAlwaysListen = nfcAlwaysListen,
                                     onNfcAlwaysListenChange = { viewModel.setNfcAlwaysListen(it) },
                                     physicsMass = physicsMass,

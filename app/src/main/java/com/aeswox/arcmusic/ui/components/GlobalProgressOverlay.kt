@@ -20,6 +20,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import com.aeswox.arcmusic.ui.haptics.AppHaptics
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -137,6 +138,7 @@ fun GlobalProgressOverlay(
     LaunchedEffect(connectionFailedAt) {
         val failedAt = connectionFailedAt ?: return@LaunchedEffect
         showConnectionError = true
+        AppHaptics.reject()
         delay(CONNECTION_ERROR_VISIBLE_MS)
         showConnectionError = false
         NfcShareService.clearConnectionFailed(failedAt)
@@ -206,6 +208,7 @@ fun GlobalProgressOverlay(
 
     LaunchedEffect(isTransferComplete) {
         if (isTransferComplete) {
+            AppHaptics.favorite(true)
             delay(3_000L)
             viewModel.resetSharing()
         }
@@ -218,6 +221,7 @@ fun GlobalProgressOverlay(
             hasInitializedExpansion = true
             return@LaunchedEffect
         }
+        AppHaptics.click()
 
         // A tiny squash-pop on expand/collapse, matching the app's jelly button motion.
         pillJellyScale.animateTo(if (isExpanded) 0.988f else 0.994f, tween(55, easing = FastOutSlowInEasing))
@@ -278,6 +282,7 @@ fun GlobalProgressOverlay(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
                         ) {
+                            AppHaptics.click()
                             if (isTransferComplete) {
                                 viewModel.resetSharing()
                             } else {
@@ -346,7 +351,10 @@ fun GlobalProgressOverlay(
                                 }
                             } else {
                                 Modifier.clickable {
-                                    if (canExpandPill) isExpanded = true
+                                    if (canExpandPill) {
+                                        AppHaptics.click()
+                                        isExpanded = true
+                                    }
                                 }
                             }
                         ),
@@ -367,8 +375,14 @@ fun GlobalProgressOverlay(
                             if (pendingConnectionRequest != null) {
                                 ConnectionRequestDetails(
                                     request = pendingConnectionRequest,
-                                    onAccept = viewModel::acceptConnection,
-                                    onReject = viewModel::rejectConnection
+                                    onAccept = {
+                                        AppHaptics.click()
+                                        viewModel.acceptConnection(it)
+                                    },
+                                    onReject = {
+                                        AppHaptics.reject()
+                                        viewModel.rejectConnection(it)
+                                    }
                                 )
                             } else {
                                 TransferDetailsContent(
@@ -384,6 +398,7 @@ fun GlobalProgressOverlay(
                                     completed = isTransferComplete,
                                     failed = showConnectionErrorForUi,
                                     onCollapse = {
+                                        AppHaptics.click()
                                         if (isTransferComplete) {
                                             viewModel.resetSharing()
                                         } else {
@@ -409,8 +424,14 @@ fun GlobalProgressOverlay(
                                 completed = isTransferComplete,
                                 failed = showConnectionErrorForUi,
                                 request = connectionRequest,
-                                onAccept = viewModel::acceptConnection,
-                                onReject = viewModel::rejectConnection
+                                onAccept = {
+                                    AppHaptics.click()
+                                    viewModel.acceptConnection(it)
+                                },
+                                onReject = {
+                                    AppHaptics.reject()
+                                    viewModel.rejectConnection(it)
+                                }
                             )
                         }
                     }

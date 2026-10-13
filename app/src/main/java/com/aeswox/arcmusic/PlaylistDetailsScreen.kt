@@ -310,6 +310,7 @@ fun PlaylistDetailsScreen(
             text = { Text("Are you sure you want to delete '${playlist?.name}'? This action cannot be undone.") },
             confirmButton = {
                 TextButton(onClick = {
+                    com.aeswox.arcmusic.ui.haptics.AppHaptics.destructive()
                     showDeleteConfirmDialog = false
                     viewModel.deletePlaylists(listOf(playlistId))
                     onNavigateBack()

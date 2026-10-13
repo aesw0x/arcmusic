@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.map
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.aeswox.arcmusic.ui.haptics.HapticIntensity
 
 /** The two launcher icon variants available in Arc Music. */
 enum class AppIconVariant {
@@ -98,6 +99,28 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val con
     private val AUTO_UPDATE_ENABLED_KEY = booleanPreferencesKey("auto_update_enabled")
     private val FONT_SCALE_KEY = floatPreferencesKey("font_scale")
     private val OVERRIDE_FONT_SCALE_ENABLED_KEY = booleanPreferencesKey("override_font_scale_enabled")
+    private val HAPTICS_ENABLED_KEY = booleanPreferencesKey("haptics_enabled")
+    private val HAPTIC_INTENSITY_KEY = stringPreferencesKey("haptic_intensity")
+
+    val hapticsEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[HAPTICS_ENABLED_KEY] ?: true
+    }
+
+    suspend fun setHapticsEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[HAPTICS_ENABLED_KEY] = enabled
+        }
+    }
+
+    val hapticIntensity: Flow<HapticIntensity> = context.dataStore.data.map { preferences ->
+        HapticIntensity.fromString(preferences[HAPTIC_INTENSITY_KEY])
+    }
+
+    suspend fun setHapticIntensity(intensity: HapticIntensity) {
+        context.dataStore.edit { preferences ->
+            preferences[HAPTIC_INTENSITY_KEY] = intensity.name
+        }
+    }
 
     private val IMMERSIVE_MODE_ENABLED_KEY = booleanPreferencesKey("immersive_mode_enabled")
 

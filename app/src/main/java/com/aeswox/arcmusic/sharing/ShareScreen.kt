@@ -44,6 +44,7 @@ import com.aeswox.arcmusic.ui.animations.jellyClick
 import com.aeswox.arcmusic.ui.animations.physicsBounceOverscroll
 import com.aeswox.arcmusic.ui.components.HugeIcons
 import com.aeswox.arcmusic.ui.components.JellyIconButton
+import com.aeswox.arcmusic.ui.haptics.AppHaptics
 import kotlin.math.*
 
 @OptIn(com.google.accompanist.permissions.ExperimentalPermissionsApi::class)
@@ -62,10 +63,21 @@ fun ShareScreen(
     val completedTransferCount by viewModel.completedTransferCount.collectAsState()
     val context = LocalContext.current
 
+    LaunchedEffect(sharingState) {
+        if (sharingState == SharingState.COMPLETED) {
+            AppHaptics.favorite(true)
+        } else if (sharingState == SharingState.ERROR) {
+            AppHaptics.reject()
+        }
+    }
+
     // Connection request dialog
     connectionRequest?.let { request ->
         AlertDialog(
-            onDismissRequest = { viewModel.rejectConnection(request.endpointId) },
+            onDismissRequest = {
+                AppHaptics.reject()
+                viewModel.rejectConnection(request.endpointId)
+            },
             title = { Text("Connection Request") },
             text = {
                 Text(
@@ -74,10 +86,16 @@ fun ShareScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = { viewModel.acceptConnection(request.endpointId) }) { Text("Accept") }
+                TextButton(onClick = {
+                    AppHaptics.click()
+                    viewModel.acceptConnection(request.endpointId)
+                }) { Text("Accept") }
             },
             dismissButton = {
-                TextButton(onClick = { viewModel.rejectConnection(request.endpointId) }) { Text("Reject") }
+                TextButton(onClick = {
+                    AppHaptics.reject()
+                    viewModel.rejectConnection(request.endpointId)
+                }) { Text("Reject") }
             }
         )
     }
@@ -111,7 +129,10 @@ fun ShareScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 JellyIconButton(
-                    onClick = onNavigateBack,
+                    onClick = {
+                        AppHaptics.click()
+                        onNavigateBack()
+                    },
                     modifier = Modifier
                         .size(42.dp)
                         .clip(CircleShape)
@@ -162,8 +183,14 @@ fun ShareScreen(
                 totalTransferCount = totalTransferCount,
                 completedTransferCount = completedTransferCount,
                 payloadLabel = payloadLabel,
-                onEndpointClick = { viewModel.requestConnection(it) },
-                onCancelTransfer = { viewModel.cancelTransfer() },
+                onEndpointClick = {
+                    AppHaptics.click()
+                    viewModel.requestConnection(it)
+                },
+                onCancelTransfer = {
+                    AppHaptics.destructive()
+                    viewModel.cancelTransfer()
+                },
                 onNfcTokenChanged = { token ->
                     com.aeswox.arcmusic.sharing.NfcShareService.currentToken = token
                     viewModel.stopAdvertising()
@@ -176,7 +203,10 @@ fun ShareScreen(
 
             // ── External share option ────────────────────────────────
             ExternalShareCard(
-                onClick = { viewModel.prepareExternalShare(context) },
+                onClick = {
+                    AppHaptics.click()
+                    viewModel.prepareExternalShare(context)
+                },
                 modifier = Modifier.padding(horizontal = 24.dp)
             )
 
@@ -338,6 +368,7 @@ private fun DeviceDiscoveryCard(
                             .clip(RoundedCornerShape(16.dp))
                             .background(nfcBgColor)
                             .clickable { 
+                                AppHaptics.toggle(!isNfcEnabled)
                                 isNfcEnabled = !isNfcEnabled 
                                 sharedPrefs.edit().putBoolean("is_nfc_enabled", isNfcEnabled).apply()
                             }

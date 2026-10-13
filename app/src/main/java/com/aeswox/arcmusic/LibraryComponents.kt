@@ -41,6 +41,7 @@ import com.aeswox.arcmusic.ui.components.ArcModalBottomSheet
 import com.aeswox.arcmusic.ui.components.MorphingMenu
 import com.aeswox.arcmusic.ui.components.MorphingMenuItem
 import com.aeswox.arcmusic.ui.components.HugeIcons
+import com.aeswox.arcmusic.ui.haptics.AppHaptics
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
@@ -187,14 +188,23 @@ fun LibraryScreenContent(modifier: Modifier = Modifier, bottomPadding: androidx.
             onCreatePlaylistClick = onCreatePlaylistClick,
             selectedItems = selectedItems,
             onToggleSelection = { title ->
+                if (selectedItems.isEmpty()) {
+                    AppHaptics.grab()
+                } else {
+                    AppHaptics.tick()
+                }
                 if (selectedItems.contains(title)) {
                     selectedItems.remove(title)
                 } else {
                     selectedItems.add(title)
                 }
             },
-            onClearSelection = { selectedItems.clear() },
+            onClearSelection = {
+                AppHaptics.click()
+                selectedItems.clear()
+            },
             onSelectAll = { items -> 
+                AppHaptics.click()
                 selectedItems.clear()
                 selectedItems.addAll(items)
             },
@@ -742,6 +752,7 @@ fun LibraryMainSection(
                         }
                         Button(
                             onClick = {
+                                AppHaptics.destructive()
                                 if (tabName == "Tracks") {
                                     val tracksToDelete = selectedItems.mapNotNull { if (it.startsWith("track_")) it.removePrefix("track_") else null }
                                     if (tracksToDelete.isNotEmpty() && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
@@ -1627,7 +1638,10 @@ fun BottomBarActionItem(icon: androidx.compose.ui.graphics.vector.ImageVector, l
     val color = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.jellyClick { onClick() }
+        modifier = Modifier.jellyClick {
+            if (isDestructive) AppHaptics.destructive() else AppHaptics.click()
+            onClick()
+        }
     ) {
         Icon(imageVector = icon, contentDescription = null, tint = color)
         Spacer(modifier = Modifier.height(4.dp))

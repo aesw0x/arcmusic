@@ -37,6 +37,7 @@ import com.aeswox.arcmusic.AppCornerRadius
 import com.aeswox.arcmusic.ui.animations.jellyClick
 import com.aeswox.arcmusic.ui.components.HugeIcons
 import com.aeswox.arcmusic.ui.components.JellyIconButton
+import com.aeswox.arcmusic.ui.haptics.AppHaptics
 
 @OptIn(com.google.accompanist.permissions.ExperimentalPermissionsApi::class)
 @Composable
@@ -52,6 +53,14 @@ fun ReceiveScreen(
     val currentTitle by viewModel.currentTransferTitle.collectAsState()
     val currentArtworkB64 by viewModel.currentTransferArtworkB64.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
+
+    LaunchedEffect(sharingState) {
+        if (sharingState == SharingState.COMPLETED) {
+            AppHaptics.favorite(true)
+        } else if (sharingState == SharingState.ERROR) {
+            AppHaptics.reject()
+        }
+    }
 
     // Custom connection request overlay is built into the bottom of the screen
 
@@ -72,6 +81,7 @@ fun ReceiveScreen(
             },
             confirmButton = {
                 TextButton(onClick = { 
+                    AppHaptics.click()
                     if (tempName.isNotBlank()) {
                         viewModel.userName = tempName.trim()
                     }
@@ -81,7 +91,10 @@ fun ReceiveScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showRenameDialog = false }) { Text("Cancel") }
+                TextButton(onClick = {
+                    AppHaptics.click()
+                    showRenameDialog = false
+                }) { Text("Cancel") }
             }
         )
     }
@@ -140,7 +153,10 @@ fun ReceiveScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 JellyIconButton(
-                    onClick = onNavigateBack,
+                    onClick = {
+                        AppHaptics.click()
+                        onNavigateBack()
+                    },
                     modifier = Modifier
                         .size(42.dp)
                         .clip(CircleShape)
@@ -161,6 +177,7 @@ fun ReceiveScreen(
                     modifier = Modifier
                         .clip(CircleShape)
                         .clickable { 
+                            AppHaptics.click()
                             tempName = viewModel.userName
                             showRenameDialog = true 
                         },
@@ -351,7 +368,10 @@ fun ReceiveScreen(
                                                 modifier = Modifier.weight(1f).height(48.dp),
                                                 shape = CircleShape,
                                                 color = if (bitmap != null) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                                onClick = { viewModel.reset() }
+                                                onClick = {
+                                                    AppHaptics.click()
+                                                    viewModel.reset()
+                                                }
                                             ) {
                                                 Box(contentAlignment = Alignment.Center) {
                                                     Text("Close", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), color = if (bitmap != null) Color.White else MaterialTheme.colorScheme.onSurfaceVariant)
@@ -362,6 +382,7 @@ fun ReceiveScreen(
                                                 shape = CircleShape,
                                                 color = if (bitmap != null) Color.White else MaterialTheme.colorScheme.primary,
                                                 onClick = { 
+                                                    AppHaptics.click()
                                                     viewModel.reset()
                                                     onNavigateBack()
                                                 }
@@ -514,7 +535,10 @@ fun ReceiveScreen(
                                                     modifier = Modifier.weight(1f).height(48.dp),
                                                     shape = CircleShape,
                                                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                                    onClick = { viewModel.rejectConnection(request.endpointId) }
+                                                    onClick = {
+                                                        AppHaptics.reject()
+                                                        viewModel.rejectConnection(request.endpointId)
+                                                    }
                                                 ) {
                                                     Box(contentAlignment = Alignment.Center) {
                                                         Text("Decline", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -524,7 +548,10 @@ fun ReceiveScreen(
                                                     modifier = Modifier.weight(1f).height(48.dp),
                                                     shape = CircleShape,
                                                     color = MaterialTheme.colorScheme.primary,
-                                                    onClick = { viewModel.acceptConnection(request.endpointId) }
+                                                    onClick = {
+                                                        AppHaptics.click()
+                                                        viewModel.acceptConnection(request.endpointId)
+                                                    }
                                                 ) {
                                                     Box(contentAlignment = Alignment.Center) {
                                                         Text("Accept", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onPrimary)

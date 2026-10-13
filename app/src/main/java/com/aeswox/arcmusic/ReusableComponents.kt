@@ -917,7 +917,10 @@ fun MiniPlayer(
                 maxLines = 1
             )
         }
-        JellyIconButton(onClick = onPlayPauseClick) {
+        JellyIconButton(onClick = {
+            com.aeswox.arcmusic.ui.haptics.AppHaptics.click()
+            onPlayPauseClick()
+        }) {
             Icon(
                 imageVector = if (isPlaying) com.aeswox.arcmusic.ui.components.HugeIcons.Pause else com.aeswox.arcmusic.ui.components.HugeIcons.Play,
                 contentDescription = if (isPlaying) "Pause" else "Play",
@@ -925,7 +928,10 @@ fun MiniPlayer(
                 modifier = Modifier.size(22.dp)
             )
         }
-        JellyIconButton(onClick = onSkipNextClick) {
+        JellyIconButton(onClick = {
+            com.aeswox.arcmusic.ui.haptics.AppHaptics.click()
+            onSkipNextClick()
+        }) {
             Icon(
                 imageVector = com.aeswox.arcmusic.ui.components.HugeIcons.Next, 
                 contentDescription = "Skip Next", 
@@ -1022,7 +1028,10 @@ fun BottomNavigation(
                 contentDescription = "Home",
                 interactionSource = tab0InteractionSource,
                 modifier = Modifier.weight(1f),
-                onClick = { onTabSelected(0) }
+                onClick = {
+                    if (currentTab != 0) com.aeswox.arcmusic.ui.haptics.AppHaptics.click()
+                    onTabSelected(0)
+                }
             )
             NavBarItem(
                 selected = currentTab == 1,
@@ -1031,7 +1040,10 @@ fun BottomNavigation(
                 contentDescription = "Search",
                 interactionSource = tab1InteractionSource,
                 modifier = Modifier.weight(1f),
-                onClick = { onTabSelected(1) }
+                onClick = {
+                    if (currentTab != 1) com.aeswox.arcmusic.ui.haptics.AppHaptics.click()
+                    onTabSelected(1)
+                }
             )
             NavBarItem(
                 selected = currentTab == 2,
@@ -1040,7 +1052,10 @@ fun BottomNavigation(
                 contentDescription = "Library",
                 interactionSource = tab2InteractionSource,
                 modifier = Modifier.weight(1f),
-                onClick = { onTabSelected(2) }
+                onClick = {
+                    if (currentTab != 2) com.aeswox.arcmusic.ui.haptics.AppHaptics.click()
+                    onTabSelected(2)
+                }
             )
         }
     }
