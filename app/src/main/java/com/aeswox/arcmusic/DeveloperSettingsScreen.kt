@@ -94,8 +94,6 @@ fun DeveloperSettingsScreen(
     onFontScaleChange: (Float) -> Unit = {},
     immersiveModeEnabled: Boolean = false,
     onImmersiveModeEnabledChange: (Boolean) -> Unit = {},
-    immersiveCinematicTransitionsEnabled: Boolean = false,
-    onImmersiveCinematicTransitionsEnabledChange: (Boolean) -> Unit = {},
     nfcAlwaysListen: Boolean = false,
     onNfcAlwaysListenChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
@@ -137,15 +135,10 @@ fun DeveloperSettingsScreen(
 
             // Immersive UI
             GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 16.dp)
-                ) {
-                    Row(
-                    modifier = Modifier
-                        .fillMaxWidth(),
-
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -166,38 +159,6 @@ fun DeveloperSettingsScreen(
                         checked = immersiveModeEnabled,
                         onCheckedChange = { onImmersiveModeEnabledChange(it) }
                     )
-                }
-
-                if (immersiveModeEnabled) {
-                    Spacer(modifier = Modifier.height(14.dp))
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                    )
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Cinematic Transitions (Experimental)",
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 15.sp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "In-place morph & evolving colors between immersive pages",
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Switch(
-                            checked = immersiveCinematicTransitionsEnabled,
-                            onCheckedChange = { onImmersiveCinematicTransitionsEnabledChange(it) }
-                        )
-                    }
-                }
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))

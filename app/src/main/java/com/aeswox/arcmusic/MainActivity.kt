@@ -529,7 +529,6 @@ class MainActivity : ComponentActivity() {
                     // immersive detail route. Non-immersive pages keep the theme background.
                     val immersiveScrimColor by viewModel.immersiveScrimColor.collectAsState()
                     val immersiveModeOn by viewModel.immersiveModeEnabled.collectAsState()
-                    val cinematicTransitionsOn by viewModel.immersiveCinematicTransitionsEnabled.collectAsState()
                     val onImmersiveRoute = currentRoute.startsWith("artist_details") ||
                         currentRoute.startsWith("album_details") ||
                         currentRoute.startsWith("playlist_details")
@@ -663,13 +662,6 @@ class MainActivity : ComponentActivity() {
                                     Box(modifier = Modifier.fillMaxSize()) {
                                         Box(modifier = Modifier.fillMaxSize().applyHazeAndBackdrop(hazeState = hazeState)) {
                                             AnimatedGlowBackground(glowIntensity = effectiveGlowIntensity, color = glowColor)
-                                            val isImmersiveDetailRoute = remember {
-                                                { route: String? ->
-                                                    route != null && (route.startsWith("artist_details") ||
-                                                        route.startsWith("album_details") ||
-                                                        route.startsWith("playlist_details"))
-                                                }
-                                            }
                                             NavHost(
                                                 navController = navController,
                                                 startDestination = startDest,
@@ -925,46 +917,10 @@ class MainActivity : ComponentActivity() {
                         }
                         composable(
                             route = "artist_details/{artistId}",
-                            enterTransition = {
-                                val fromImmersive = isImmersiveDetailRoute(initialState.destination.route)
-                                val toImmersive = isImmersiveDetailRoute(targetState.destination.route)
-                                if (immersiveModeOn && cinematicTransitionsOn && fromImmersive && toImmersive) {
-                                    NavTransitions.CinematicImmersiveEnter
-                                } else {
-                                    NavTransitions.DetailEnter
-                                }
-                            },
-                            exitTransition = {
-                                val fromImmersive = isImmersiveDetailRoute(initialState.destination.route)
-                                val toImmersive = isImmersiveDetailRoute(targetState.destination.route)
-                                if (immersiveModeOn && cinematicTransitionsOn && fromImmersive && toImmersive) {
-                                    NavTransitions.CinematicImmersiveExit
-                                } else if (immersiveModeOn) {
-                                    NavTransitions.ImmersiveDetailExit
-                                } else {
-                                    NavTransitions.DetailExit
-                                }
-                            },
-                            popEnterTransition = {
-                                val fromImmersive = isImmersiveDetailRoute(initialState.destination.route)
-                                val toImmersive = isImmersiveDetailRoute(targetState.destination.route)
-                                if (immersiveModeOn && cinematicTransitionsOn && fromImmersive && toImmersive) {
-                                    NavTransitions.CinematicImmersivePopEnter
-                                } else if (immersiveModeOn) {
-                                    NavTransitions.ImmersiveDetailPopEnter
-                                } else {
-                                    NavTransitions.DetailPopEnter
-                                }
-                            },
-                            popExitTransition = {
-                                val fromImmersive = isImmersiveDetailRoute(initialState.destination.route)
-                                val toImmersive = isImmersiveDetailRoute(targetState.destination.route)
-                                if (immersiveModeOn && cinematicTransitionsOn && fromImmersive && toImmersive) {
-                                    NavTransitions.CinematicImmersivePopExit
-                                } else {
-                                    NavTransitions.DetailPopExit
-                                }
-                            }
+                            enterTransition = { NavTransitions.DetailEnter },
+                            exitTransition = { NavTransitions.DetailExit },
+                            popEnterTransition = { NavTransitions.DetailPopEnter },
+                            popExitTransition = { NavTransitions.DetailPopExit }
                         ) { backStackEntry ->
                             val artistId = android.net.Uri.decode(backStackEntry.arguments?.getString("artistId") ?: return@composable)
                             Box(modifier = Modifier.fillMaxSize()) {
@@ -1014,46 +970,10 @@ class MainActivity : ComponentActivity() {
                         }
                         composable(
                             route = "album_details/{albumId}",
-                            enterTransition = {
-                                val fromImmersive = isImmersiveDetailRoute(initialState.destination.route)
-                                val toImmersive = isImmersiveDetailRoute(targetState.destination.route)
-                                if (immersiveModeOn && cinematicTransitionsOn && fromImmersive && toImmersive) {
-                                    NavTransitions.CinematicImmersiveEnter
-                                } else {
-                                    NavTransitions.DetailEnter
-                                }
-                            },
-                            exitTransition = {
-                                val fromImmersive = isImmersiveDetailRoute(initialState.destination.route)
-                                val toImmersive = isImmersiveDetailRoute(targetState.destination.route)
-                                if (immersiveModeOn && cinematicTransitionsOn && fromImmersive && toImmersive) {
-                                    NavTransitions.CinematicImmersiveExit
-                                } else if (immersiveModeOn) {
-                                    NavTransitions.ImmersiveDetailExit
-                                } else {
-                                    NavTransitions.DetailExit
-                                }
-                            },
-                            popEnterTransition = {
-                                val fromImmersive = isImmersiveDetailRoute(initialState.destination.route)
-                                val toImmersive = isImmersiveDetailRoute(targetState.destination.route)
-                                if (immersiveModeOn && cinematicTransitionsOn && fromImmersive && toImmersive) {
-                                    NavTransitions.CinematicImmersivePopEnter
-                                } else if (immersiveModeOn) {
-                                    NavTransitions.ImmersiveDetailPopEnter
-                                } else {
-                                    NavTransitions.DetailPopEnter
-                                }
-                            },
-                            popExitTransition = {
-                                val fromImmersive = isImmersiveDetailRoute(initialState.destination.route)
-                                val toImmersive = isImmersiveDetailRoute(targetState.destination.route)
-                                if (immersiveModeOn && cinematicTransitionsOn && fromImmersive && toImmersive) {
-                                    NavTransitions.CinematicImmersivePopExit
-                                } else {
-                                    NavTransitions.DetailPopExit
-                                }
-                            }
+                            enterTransition = { NavTransitions.DetailEnter },
+                            exitTransition = { NavTransitions.DetailExit },
+                            popEnterTransition = { NavTransitions.DetailPopEnter },
+                            popExitTransition = { NavTransitions.DetailPopExit }
                         ) { backStackEntry ->
                             val albumId = android.net.Uri.decode(backStackEntry.arguments?.getString("albumId") ?: return@composable)
                             Box(modifier = Modifier.fillMaxSize()) {
@@ -1069,46 +989,10 @@ class MainActivity : ComponentActivity() {
                         }
                         composable(
                             route = "playlist_details/{playlistId}",
-                            enterTransition = {
-                                val fromImmersive = isImmersiveDetailRoute(initialState.destination.route)
-                                val toImmersive = isImmersiveDetailRoute(targetState.destination.route)
-                                if (immersiveModeOn && cinematicTransitionsOn && fromImmersive && toImmersive) {
-                                    NavTransitions.CinematicImmersiveEnter
-                                } else {
-                                    NavTransitions.DetailEnter
-                                }
-                            },
-                            exitTransition = {
-                                val fromImmersive = isImmersiveDetailRoute(initialState.destination.route)
-                                val toImmersive = isImmersiveDetailRoute(targetState.destination.route)
-                                if (immersiveModeOn && cinematicTransitionsOn && fromImmersive && toImmersive) {
-                                    NavTransitions.CinematicImmersiveExit
-                                } else if (immersiveModeOn) {
-                                    NavTransitions.ImmersiveDetailExit
-                                } else {
-                                    NavTransitions.DetailExit
-                                }
-                            },
-                            popEnterTransition = {
-                                val fromImmersive = isImmersiveDetailRoute(initialState.destination.route)
-                                val toImmersive = isImmersiveDetailRoute(targetState.destination.route)
-                                if (immersiveModeOn && cinematicTransitionsOn && fromImmersive && toImmersive) {
-                                    NavTransitions.CinematicImmersivePopEnter
-                                } else if (immersiveModeOn) {
-                                    NavTransitions.ImmersiveDetailPopEnter
-                                } else {
-                                    NavTransitions.DetailPopEnter
-                                }
-                            },
-                            popExitTransition = {
-                                val fromImmersive = isImmersiveDetailRoute(initialState.destination.route)
-                                val toImmersive = isImmersiveDetailRoute(targetState.destination.route)
-                                if (immersiveModeOn && cinematicTransitionsOn && fromImmersive && toImmersive) {
-                                    NavTransitions.CinematicImmersivePopExit
-                                } else {
-                                    NavTransitions.DetailPopExit
-                                }
-                            }
+                            enterTransition = { NavTransitions.DetailEnter },
+                            exitTransition = { NavTransitions.DetailExit },
+                            popEnterTransition = { NavTransitions.DetailPopEnter },
+                            popExitTransition = { NavTransitions.DetailPopExit }
                         ) { backStackEntry ->
                             val playlistId = android.net.Uri.decode(backStackEntry.arguments?.getString("playlistId") ?: return@composable)
                             Box(modifier = Modifier.fillMaxSize()) {
@@ -1278,7 +1162,6 @@ class MainActivity : ComponentActivity() {
                             val seekbarBloomDuration by viewModel.seekbarBloomDuration.collectAsState()
                             val coilDiskCacheLimitMb by viewModel.coilDiskCacheLimitMb.collectAsState()
                             val immersiveModeEnabled by viewModel.immersiveModeEnabled.collectAsState()
-                            val immersiveCinematicTransitionsEnabled by viewModel.immersiveCinematicTransitionsEnabled.collectAsState()
                             Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
                                 DeveloperSettingsScreen(
                                     onNavigateBack = { navController.popBackStack() },
@@ -1306,8 +1189,6 @@ class MainActivity : ComponentActivity() {
                                     onCoilDiskCacheLimitMbChange = { viewModel.setCoilDiskCacheLimitMb(it) },
                                     immersiveModeEnabled = immersiveModeEnabled,
                                     onImmersiveModeEnabledChange = { viewModel.setImmersiveModeEnabled(it) },
-                                    immersiveCinematicTransitionsEnabled = immersiveCinematicTransitionsEnabled,
-                                    onImmersiveCinematicTransitionsEnabledChange = { viewModel.setImmersiveCinematicTransitionsEnabled(it) },
                                     nfcAlwaysListen = nfcAlwaysListen,
                                     onNfcAlwaysListenChange = { viewModel.setNfcAlwaysListen(it) },
                                     physicsMass = physicsMass,
@@ -3800,9 +3681,6 @@ modifier = Modifier.physicsBounceOverscroll(isHorizontal = true),
 @Composable
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 fun AlbumResultItem(title: String, year: String, imageUrl: Any?, modifier: Modifier = Modifier.width(140.dp), isSelectionMode: Boolean = false, isSelected: Boolean = false, onLongClick: (() -> Unit)? = null, onClick: () -> Unit = {}, immersive: Boolean = false) {
-    if (immersive && imageUrl != null) {
-        PreloadImmersivePalette(imageUrl.toString())
-    }
     Column(
         modifier = modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)
     ) {

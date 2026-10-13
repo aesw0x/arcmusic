@@ -296,15 +296,6 @@ class MusicViewModel @Inject constructor(
     val immersiveModeEnabled: StateFlow<Boolean> = settingsRepository.immersiveModeEnabled
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
-    val immersiveCinematicTransitionsEnabled: StateFlow<Boolean> = settingsRepository.immersiveCinematicTransitionsEnabled
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
-
-    fun setImmersiveCinematicTransitionsEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.setImmersiveCinematicTransitionsEnabled(enabled)
-        }
-    }
-
     // Published by immersive detail screens (artist/album/playlist) so the bottom-chrome
     // scrim in MainActivity can tint itself to match the page background. Null when not
     // on an immersive detail page. Gated in MainActivity by route + immersiveModeEnabled.
