@@ -22,6 +22,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -55,6 +56,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -65,7 +67,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -85,6 +90,7 @@ import kotlinx.coroutines.withContext
 
 private const val NFC_TAP_PILL_TIMEOUT_MS = 30_000L
 private const val CONNECTION_ERROR_VISIBLE_MS = 2_500L
+private const val EXPANDED_AUTO_COLLAPSE_DELAY_MS = 3_000L
 
 @HiltViewModel
 class GlobalOverlayViewModel @Inject constructor(
@@ -173,8 +179,36 @@ fun GlobalProgressOverlay(
     val canExpandPill = (hasTransferActivity || connectionRequest != null || showConnectionErrorForUi) && !isExcludedRoute
     var isExpanded by remember { mutableStateOf(false) }
 
-    LaunchedEffect(canExpandPill) {
-        if (!canExpandPill) isExpanded = false
+    LaunchedEffect(canExpandPill, shouldShow) {
+        if (!canExpandPill) {
+            if (!shouldShow) {
+                delay(220L)
+            }
+            isExpanded = false
+        }
+    }
+
+    var lastInteractionTrigger by remember { mutableLongStateOf(0L) }
+    var isInteractingWithExpanded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isExpanded) {
+        if (isExpanded) {
+            lastInteractionTrigger = android.os.SystemClock.elapsedRealtime()
+        }
+    }
+
+    LaunchedEffect(isExpanded, lastInteractionTrigger, isInteractingWithExpanded) {
+        if (isExpanded && !isInteractingWithExpanded) {
+            delay(EXPANDED_AUTO_COLLAPSE_DELAY_MS)
+            isExpanded = false
+        }
+    }
+
+    LaunchedEffect(isTransferComplete) {
+        if (isTransferComplete) {
+            delay(3_000L)
+            viewModel.resetSharing()
+        }
     }
 
     val pillJellyScale = remember { Animatable(1f) }
@@ -214,15 +248,28 @@ fun GlobalProgressOverlay(
             initialScale = 0.94f,
             animationSpec = spring(dampingRatio = 0.88f, stiffness = 520f)
         ),
-        exit = slideOutVertically(
-            targetOffsetY = { -it - 100 },
-            animationSpec = tween(210, easing = FastOutSlowInEasing)
-        ) + fadeOut(animationSpec = tween(170, easing = FastOutSlowInEasing)) +
-            scaleOut(targetScale = 0.97f, animationSpec = tween(170, easing = FastOutSlowInEasing)),
+        exit = if (isExpanded) {
+            fadeOut(animationSpec = tween(180, easing = FastOutSlowInEasing)) +
+                scaleOut(targetScale = 0.92f, animationSpec = tween(180, easing = FastOutSlowInEasing)) +
+                slideOutVertically(
+                    targetOffsetY = { -40 },
+                    animationSpec = tween(180, easing = FastOutSlowInEasing)
+                )
+        } else {
+            slideOutVertically(
+                targetOffsetY = { -it - 100 },
+                animationSpec = tween(210, easing = FastOutSlowInEasing)
+            ) + fadeOut(animationSpec = tween(170, easing = FastOutSlowInEasing)) +
+                scaleOut(targetScale = 0.97f, animationSpec = tween(170, easing = FastOutSlowInEasing))
+        },
         modifier = modifier.fillMaxSize()
     ) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            if (isExpanded) {
+            androidx.compose.animation.AnimatedVisibility(
+                visible = isExpanded && shouldShow,
+                enter = fadeIn(tween(180, easing = FastOutSlowInEasing)),
+                exit = fadeOut(tween(180, easing = FastOutSlowInEasing))
+            ) {
                 Box(
                     Modifier
                         .fillMaxSize()
@@ -230,7 +277,13 @@ fun GlobalProgressOverlay(
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
-                        ) { isExpanded = false }
+                        ) {
+                            if (isTransferComplete) {
+                                viewModel.resetSharing()
+                            } else {
+                                isExpanded = false
+                            }
+                        }
                 )
             }
 
@@ -251,29 +304,55 @@ fun GlobalProgressOverlay(
                 animationSpec = spring(dampingRatio = 0.9f, stiffness = 520f),
                 label = "transfer_pill_height"
             )
+            val isDark = MaterialTheme.colorScheme.background.luminance() < 0.05f
+            val targetPillColor = when {
+                isExpanded -> MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.98f)
+                isDark -> MaterialTheme.colorScheme.surfaceContainerHigh
+                else -> Color.White
+            }
             val pillColor by animateColorAsState(
-                targetValue = if (isExpanded) MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.98f) else Color.White,
+                targetValue = targetPillColor,
                 animationSpec = tween(240, easing = FastOutSlowInEasing),
                 label = "transfer_pill_color"
             )
+            val borderColor = if (isDark) {
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+            } else {
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f)
+            }
 
             Column(Modifier.fillMaxWidth().padding(top = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Surface(
                     modifier = Modifier
                         .width(pillWidth)
                         .height(pillHeight)
-                        .shadow(20.dp, RoundedCornerShape(cornerRadius))
+                        .shadow(if (isDark) 12.dp else 20.dp, RoundedCornerShape(cornerRadius))
+                        .border(1.dp, borderColor, RoundedCornerShape(cornerRadius))
                         .clip(RoundedCornerShape(cornerRadius))
                         .graphicsLayer {
                             scaleX = pillJellyScale.value
                             scaleY = pillJellyScale.value
                         }
-                        .then(if (isExpanded) Modifier else Modifier.clickable {
-                            if (canExpandPill) isExpanded = true
-                        }),
+                        .then(
+                            if (isExpanded) {
+                                Modifier.pointerInput(Unit) {
+                                    awaitPointerEventScope {
+                                        while (true) {
+                                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                                            isInteractingWithExpanded = event.changes.any { it.pressed }
+                                            lastInteractionTrigger = android.os.SystemClock.elapsedRealtime()
+                                        }
+                                    }
+                                }
+                            } else {
+                                Modifier.clickable {
+                                    if (canExpandPill) isExpanded = true
+                                }
+                            }
+                        ),
                     shape = RoundedCornerShape(cornerRadius),
                     color = pillColor,
-                    contentColor = if (isExpanded) MaterialTheme.colorScheme.onSurface else Color.Black
+                    contentColor = MaterialTheme.colorScheme.onSurface
                 ) {
                     AnimatedContent(
                         targetState = isExpanded,
@@ -304,7 +383,13 @@ fun GlobalProgressOverlay(
                                     isPreparing = isConnectedPreparing,
                                     completed = isTransferComplete,
                                     failed = showConnectionErrorForUi,
-                                    onCollapse = { isExpanded = false }
+                                    onCollapse = {
+                                        if (isTransferComplete) {
+                                            viewModel.resetSharing()
+                                        } else {
+                                            isExpanded = false
+                                        }
+                                    }
                                 )
                             }
                         } else {
@@ -372,10 +457,10 @@ private fun ProgressPill(
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             TextButton(onClick = { onReject(request) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 0.dp)) {
-                                Text("Decline")
+                                Text("Decline", color = MaterialTheme.colorScheme.error)
                             }
                             TextButton(onClick = { onAccept(request) }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 0.dp)) {
-                                Text("Accept")
+                                Text("Accept", color = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }
@@ -384,7 +469,7 @@ private fun ProgressPill(
                     Icon(Icons.Default.Close, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                     Column {
                         Text("Couldn’t connect", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-                        Text("Try tapping the devices again", style = MaterialTheme.typography.bodySmall, color = Color.Black.copy(alpha = 0.7f))
+                        Text("Try tapping the devices again", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 isTapDetected -> {
@@ -395,7 +480,7 @@ private fun ProgressPill(
                     )
                     Column {
                         Text("Tap detected", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-                        Text("Connecting to nearby device…", style = MaterialTheme.typography.bodySmall, color = Color.Black.copy(alpha = 0.7f))
+                        Text("Connecting to nearby device…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 completed -> {
@@ -405,7 +490,7 @@ private fun ProgressPill(
                             if (isReceiving) "Music received" else "Transfer complete",
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                         )
-                        Text("Tap to view details", style = MaterialTheme.typography.bodySmall, color = Color.Black.copy(alpha = 0.7f))
+                        Text("Tap to view details", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 isTransferring -> {
@@ -430,7 +515,7 @@ private fun ProgressPill(
                         Text(
                             if (totalCount > 0) "$completedCount of $totalCount files" else "Transfer in progress",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.Black.copy(alpha = 0.7f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -445,7 +530,7 @@ private fun ProgressPill(
                     Column {
                         Text(scanTitle, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
                         if (scanTotal > 0) {
-                            Text("$scanCurrent of $scanTotal tracks", style = MaterialTheme.typography.bodySmall, color = Color.Black.copy(alpha = 0.7f))
+                            Text("$scanCurrent of $scanTotal tracks", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -457,7 +542,7 @@ private fun ProgressPill(
                     )
                     Column {
                         Text("Preparing transfer…", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-                        Text("Connected", style = MaterialTheme.typography.bodySmall, color = Color.Black.copy(alpha = 0.7f))
+                        Text("Connected", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 else -> {
@@ -473,7 +558,7 @@ private fun ProgressPill(
                         Text(
                             if (totalCount > 0) "$completedCount of $totalCount files" else "Transfer in progress",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.Black.copy(alpha = 0.7f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -610,7 +695,7 @@ private fun ConnectionRequestDetails(
             overflow = TextOverflow.Ellipsis
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-            TextButton(onClick = { onReject(request) }) { Text("Decline") }
+            TextButton(onClick = { onReject(request) }) { Text("Decline", color = MaterialTheme.colorScheme.error) }
             Button(onClick = { onAccept(request) }) { Text("Accept") }
         }
     }

@@ -79,6 +79,66 @@ object NavTransitions {
                     animationSpec = tween(ENTER_DURATION, easing = SmoothEase)
                 )
 
+    // ── IMMERSIVE DETAIL transitions ──────────────────────────────────────────────
+    // Used for: album_details, artist_details, playlist_details when immersiveMode is ON.
+    // Parallax slide keeps the outgoing immersive background edge-to-edge behind the
+    // incoming screen so the default white glow canvas is never exposed mid-transition.
+
+    /** Exiting when a child pushes on top: subtle parallax slide to the left without scale/fade */
+    val ImmersiveDetailExit: ExitTransition
+        get() = slideOutHorizontally(
+            targetOffsetX = { -it / 3 },
+            animationSpec = tween(ENTER_DURATION, easing = SmoothEase)
+        )
+
+    /** Returning from child via back gesture / pop: slide back in from parallax offset */
+    val ImmersiveDetailPopEnter: EnterTransition
+        get() = slideInHorizontally(
+            initialOffsetX = { -it / 3 },
+            animationSpec = tween(ENTER_DURATION, easing = SmoothEase)
+        )
+
+    // ── CINEMATIC IMMERSIVE transitions (Experimental) ────────────────────────────
+    // When navigating between immersive screens with cinematic transitions enabled,
+    // the page content gently drifts and fades in/out in-place rather than sliding across.
+    // The background remains unbroken and solid, allowing the color to evolve smoothly.
+
+    /** Entering an immersive screen: gently fades in and floats up into place */
+    val CinematicImmersiveEnter: EnterTransition
+        get() = fadeIn(
+            animationSpec = tween(durationMillis = 450, delayMillis = 60, easing = SmoothEase)
+        ) + slideInVertically(
+            initialOffsetY = { it / 14 },
+            animationSpec = tween(durationMillis = 550, delayMillis = 60, easing = SmoothEase)
+        )
+
+    /** Outgoing immersive screen: gently fades out and floats up */
+    val CinematicImmersiveExit: ExitTransition
+        get() = fadeOut(
+            animationSpec = tween(durationMillis = 350, easing = SmoothEase)
+        ) + slideOutVertically(
+            targetOffsetY = { -it / 18 },
+            animationSpec = tween(durationMillis = 350, easing = SmoothEase)
+        )
+
+    /** Returning to an immersive screen via back: floats down into place */
+    val CinematicImmersivePopEnter: EnterTransition
+        get() = fadeIn(
+            animationSpec = tween(durationMillis = 400, delayMillis = 50, easing = SmoothEase)
+        ) + slideInVertically(
+            initialOffsetY = { -it / 18 },
+            animationSpec = tween(durationMillis = 450, delayMillis = 50, easing = SmoothEase)
+        )
+
+    /** Popping an immersive screen off: floats down and fades out */
+    val CinematicImmersivePopExit: ExitTransition
+        get() = fadeOut(
+            animationSpec = tween(durationMillis = 350, easing = SmoothEase)
+        ) + slideOutVertically(
+            targetOffsetY = { it / 14 },
+            animationSpec = tween(durationMillis = 350, easing = SmoothEase)
+        )
+
     // ── SHEET transitions ─────────────────────────────────────────────────────────
     // Used for: settings, appearance, jiggle_physics, equalizer, media_management,
     //           excluded_folders, collection_growth, collection_health, queue

@@ -100,6 +100,7 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val con
     private val OVERRIDE_FONT_SCALE_ENABLED_KEY = booleanPreferencesKey("override_font_scale_enabled")
 
     private val IMMERSIVE_MODE_ENABLED_KEY = booleanPreferencesKey("immersive_mode_enabled")
+    private val IMMERSIVE_CINEMATIC_TRANSITIONS_KEY = booleanPreferencesKey("immersive_cinematic_transitions")
 
     val immersiveModeEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
         preferences[IMMERSIVE_MODE_ENABLED_KEY] ?: false
@@ -108,6 +109,16 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val con
     suspend fun setImmersiveModeEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[IMMERSIVE_MODE_ENABLED_KEY] = enabled
+        }
+    }
+    
+    val immersiveCinematicTransitionsEnabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[IMMERSIVE_CINEMATIC_TRANSITIONS_KEY] ?: false
+    }
+
+    suspend fun setImmersiveCinematicTransitionsEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[IMMERSIVE_CINEMATIC_TRANSITIONS_KEY] = enabled
         }
     }
 

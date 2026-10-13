@@ -53,11 +53,34 @@ fun AlbumDetailsScreen(
     val hasMiniPlayer = isMiniPlayerVisible && currentlyPlaying != null
 
     val immersiveMode by viewModel.immersiveModeEnabled.collectAsState()
+    val cinematicTransitionsEnabled by viewModel.immersiveCinematicTransitionsEnabled.collectAsState()
+    val previousScrimColor by viewModel.immersiveScrimColor.collectAsState()
     val isDark = isDarkTheme()
-    val rawImmersiveColor by rememberDominantColor(album?.artworkUri, Color(0xFF211F26))
-    val immersiveColor = remember(rawImmersiveColor, isDark) { immersiveBackground(rawImmersiveColor, isDark) }
+    val fallbackInitialColor = remember(cinematicTransitionsEnabled, previousScrimColor) {
+        if (cinematicTransitionsEnabled && previousScrimColor != null) previousScrimColor!! else Color(0xFF211F26)
+    }
+    val rawImmersiveColor by rememberDominantColor(album?.artworkUri, fallbackInitialColor)
+    val targetImmersiveColor = remember(rawImmersiveColor, isDark) { immersiveBackground(rawImmersiveColor, isDark) }
+    val animatedImmersiveColor by androidx.compose.animation.animateColorAsState(
+        targetValue = targetImmersiveColor,
+        animationSpec = androidx.compose.animation.core.tween(
+            durationMillis = if (cinematicTransitionsEnabled) 750 else 0,
+            easing = androidx.compose.animation.core.CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+        ),
+        label = "cinematicImmersiveBgColor"
+    )
+    val immersiveColor = if (cinematicTransitionsEnabled) animatedImmersiveColor else targetImmersiveColor
     val baseAccent by rememberVibrantColor(album?.artworkUri, MaterialTheme.colorScheme.secondary, immersiveColor)
-    val immersiveAccent = remember(baseAccent, isDark) { darkenTowardBlack(baseAccent, isDark, threshold = 0.60f, maxMix = 0.40f) }
+    val targetImmersiveAccent = remember(baseAccent, isDark) { darkenTowardBlack(baseAccent, isDark, threshold = 0.60f, maxMix = 0.40f) }
+    val animatedImmersiveAccent by androidx.compose.animation.animateColorAsState(
+        targetValue = targetImmersiveAccent,
+        animationSpec = androidx.compose.animation.core.tween(
+            durationMillis = if (cinematicTransitionsEnabled) 750 else 0,
+            easing = androidx.compose.animation.core.CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+        ),
+        label = "cinematicImmersiveAccent"
+    )
+    val immersiveAccent = if (cinematicTransitionsEnabled) animatedImmersiveAccent else targetImmersiveAccent
     LaunchedEffect(immersiveMode, immersiveColor) {
         viewModel.setImmersiveScrimColor(if (immersiveMode) immersiveColor else null)
     }
@@ -127,7 +150,14 @@ fun AlbumDetailsScreen(
     }
 
     if (album == null) {
-        Box(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(
+                    if (immersiveMode) Modifier.background(immersiveColor)
+                    else Modifier.systemBarsPadding()
+                )
+        ) {
             AlbumDetailsSkeleton(onNavigateBack = onNavigateBack)
         }
     } else {

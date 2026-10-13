@@ -237,7 +237,13 @@ class NearbySharingManager @Inject constructor(
             totalFileCount = 0
             completedFileCount = 0
             filePayloadIds.clear()
-            ensurePassiveListening()
+            coroutineScope.launch {
+                delay(3_000)
+                if (_sharingState.value == SharingState.COMPLETED) {
+                    _sharingState.value = SharingState.IDLE
+                    ensurePassiveListening()
+                }
+            }
             return
         }
         val track = payloadQueue.removeAt(0)
@@ -363,7 +369,11 @@ class NearbySharingManager @Inject constructor(
                             activeEndpointId?.let { connectionsClient.disconnectFromEndpoint(it) }
                             activeEndpointId = null
                             updateTransferService(SharingState.IDLE)
-                            ensurePassiveListening()
+                            delay(3_000)
+                            if (_sharingState.value == SharingState.COMPLETED) {
+                                _sharingState.value = SharingState.IDLE
+                                ensurePassiveListening()
+                            }
                         }
                     }
                 }
