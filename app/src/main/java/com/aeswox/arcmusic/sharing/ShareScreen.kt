@@ -196,6 +196,10 @@ fun ShareScreen(
                     viewModel.stopAdvertising()
                     viewModel.startAdvertising(token)
                 },
+                onRetry = {
+                    AppHaptics.click()
+                    viewModel.startDiscovery()
+                },
                 modifier = Modifier.padding(horizontal = 24.dp)
             )
 
@@ -285,6 +289,7 @@ private fun DeviceDiscoveryCard(
     onEndpointClick: (String) -> Unit,
     onCancelTransfer: () -> Unit,
     onNfcTokenChanged: (String?) -> Unit,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
@@ -499,7 +504,10 @@ private fun DeviceDiscoveryCard(
                     modifier = Modifier
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.errorContainer)
-                        .jellyClick { /* Retry logic passed from viewmodel normally */ }
+                        .jellyClick {
+                            AppHaptics.click()
+                            onRetry()
+                        }
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                     Text(
@@ -774,6 +782,8 @@ private fun buildPermissionsList(): List<String> {
             android.Manifest.permission.BLUETOOTH_ADVERTISE,
             android.Manifest.permission.BLUETOOTH_CONNECT,
             android.Manifest.permission.NEARBY_WIFI_DEVICES,
+            android.Manifest.permission.ACCESS_FINE_LOCATION,
+            android.Manifest.permission.ACCESS_COARSE_LOCATION,
             android.Manifest.permission.POST_NOTIFICATIONS
         )
     } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {

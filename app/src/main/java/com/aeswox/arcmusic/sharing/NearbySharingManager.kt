@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -47,7 +48,7 @@ enum class SharingState {
     ERROR
 }
 
-data class DiscoveredEndpoint(val id: String, val name: String)
+data class DiscoveredEndpoint(val id: String, val name: String, val deviceKey: String = id)
 data class ConnectionRequest(val endpointId: String, val endpointName: String, val authCode: String)
 
 @Singleton
@@ -57,7 +58,7 @@ class NearbySharingManager @Inject constructor(
     private val importMediaUseCase: ImportMediaUseCase
 ) {
     private val connectionsClient: ConnectionsClient = Nearby.getConnectionsClient(context)
-    private val strategy = Strategy.P2P_POINT_TO_POINT
+    private val strategy = Strategy.P2P_STAR
     private val serviceId = "com.aeswox.arcmusic.SERVICE_ID"
     private val prefs = context.getSharedPreferences("nearby_sharing_prefs", Context.MODE_PRIVATE)
 
@@ -66,6 +67,13 @@ class NearbySharingManager @Inject constructor(
         set(value) {
             prefs.edit().putString("device_name", value).apply()
         }
+
+    /** Persistent 6-char ID that survives reinstalls and distinguishes two phones of the same model. */
+    private val deviceUniqueId: String = prefs.getString("device_unique_id", null) ?: run {
+        val newId = java.util.UUID.randomUUID().toString().take(6)
+        prefs.edit().putString("device_unique_id", newId).apply()
+        newId
+    }
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
     private val processingJobs = mutableListOf<kotlinx.coroutines.Job>()
 
@@ -420,9 +428,10 @@ class NearbySharingManager @Inject constructor(
                 acceptConnection(endpointId)
             } else {
                 // Sender side logic: Check if the receiver passed back our exact token in their name
-                val receiverToken = if (info.endpointName.contains("|")) info.endpointName.split("|").getOrNull(1) else null
+                val parts = if (info.endpointName.contains("|")) info.endpointName.split("|") else null
+                val receiverToken = parts?.getOrNull(1)?.takeIf { it.isNotEmpty() }
                 val currentToken = com.aeswox.arcmusic.sharing.NfcShareService.currentToken
-                val cleanName = if (info.endpointName.contains("|")) info.endpointName.substringBefore("|") else info.endpointName
+                val cleanName = parts?.getOrNull(0) ?: info.endpointName
                 _incomingSenderName.value = cleanName
 
                 if (receiverToken != null && currentToken != null && receiverToken == currentToken) {
@@ -668,22 +677,28 @@ class NearbySharingManager @Inject constructor(
 
     private val endpointDiscoveryCallback = object : EndpointDiscoveryCallback() {
         override fun onEndpointFound(endpointId: String, info: DiscoveredEndpointInfo) {
-            val currentList = _discoveredEndpoints.value.toMutableList()
             var displayName = info.endpointName
             var token: String? = null
+            var remoteDeviceKey = endpointId
             if (displayName.contains("|")) {
                 val parts = displayName.split("|")
-                displayName = parts[0]
-                token = parts.getOrNull(1)
+                displayName = parts.getOrNull(0) ?: info.endpointName
+                token = parts.getOrNull(1)?.takeIf { it.isNotEmpty() }
+                remoteDeviceKey = parts.getOrNull(2)?.takeIf { it.isNotEmpty() } ?: endpointId
             }
-            
+
             if (token != null) {
                 discoveredNfcTokens[endpointId] = token
             }
-            
-            currentList.add(DiscoveredEndpoint(endpointId, displayName))
-            _discoveredEndpoints.value = currentList
-            
+
+            // Atomic update: remove any stale entry for this endpoint or device, then add fresh one.
+            // This prevents a restarted receiver from appearing twice, and ensures two concurrent
+            // discoveries (milliseconds apart) don't overwrite each other via a read-modify-write race.
+            _discoveredEndpoints.update { current ->
+                val filtered = current.filterNot { it.id == endpointId || it.deviceKey == remoteDeviceKey }
+                filtered + DiscoveredEndpoint(id = endpointId, name = displayName, deviceKey = remoteDeviceKey)
+            }
+
             // Auto connect if this endpoint matches our scanned NFC token
             if (token != null && token == expectedNfcToken) {
                 requestConnection(endpointId)
@@ -692,16 +707,16 @@ class NearbySharingManager @Inject constructor(
 
         override fun onEndpointLost(endpointId: String) {
             discoveredNfcTokens.remove(endpointId)
-            val currentList = _discoveredEndpoints.value.toMutableList()
-            currentList.removeAll { it.id == endpointId }
-            _discoveredEndpoints.value = currentList
+            _discoveredEndpoints.update { current ->
+                current.filterNot { it.id == endpointId }
+            }
         }
     }
 
     fun startAdvertising(nfcToken: String? = null, updateState: Boolean = true) {
         isInitiator = false
         val advertisingOptions = AdvertisingOptions.Builder().setStrategy(strategy).build()
-        val nameToAdvertise = if (nfcToken != null) "$userName|$nfcToken" else userName
+        val nameToAdvertise = if (nfcToken != null) "$userName|$nfcToken|$deviceUniqueId" else "$userName||$deviceUniqueId"
         connectionsClient.startAdvertising(
             nameToAdvertise, serviceId, connectionLifecycleCallback, advertisingOptions
         ).addOnSuccessListener {
@@ -729,6 +744,13 @@ class NearbySharingManager @Inject constructor(
     }
 
     fun startDiscovery(updateState: Boolean = true) {
+        // If already discovering, don't wipe the found-devices list and don't call startDiscovery again.
+        // Calling startDiscovery() while it's running silently fails and clears our endpoints — which
+        // is why only one receiver ever showed when passiveRetryJob fired 1.5 s after discovery began.
+        if (passiveDiscovering) {
+            if (updateState) _sharingState.value = SharingState.DISCOVERING
+            return
+        }
         _discoveredEndpoints.value = emptyList()
         // Do NOT clear discoveredNfcTokens here — the cache must survive passive-session restarts
         // so that an NFC tap can immediately match a pre-discovered endpoint instead of waiting
@@ -737,14 +759,22 @@ class NearbySharingManager @Inject constructor(
         connectionsClient.startDiscovery(
             serviceId, endpointDiscoveryCallback, discoveryOptions
         ).addOnSuccessListener {
-            if (!updateState) passiveDiscovering = true
+            passiveDiscovering = true
             if (!updateState && passiveAdvertising) passiveSessionStarting = false
             if (updateState) _sharingState.value = SharingState.DISCOVERING
-        }.addOnFailureListener {
-            if (!updateState) passiveDiscovering = false
-            if (!updateState) passiveSessionStarting = false
-            if (updateState) _sharingState.value = SharingState.ERROR
-            Log.e("NearbySharingManager", "Failed to start discovery", it)
+        }.addOnFailureListener { error ->
+            val statusCode = (error as? com.google.android.gms.common.api.ApiException)?.statusCode
+            if (statusCode == com.google.android.gms.nearby.connection.ConnectionsStatusCodes.STATUS_ALREADY_DISCOVERING) {
+                // Already running — treat as success
+                passiveDiscovering = true
+                if (!updateState && passiveAdvertising) passiveSessionStarting = false
+                if (updateState) _sharingState.value = SharingState.DISCOVERING
+            } else {
+                if (!updateState) passiveDiscovering = false
+                if (!updateState) passiveSessionStarting = false
+                if (updateState) _sharingState.value = SharingState.ERROR
+                Log.e("NearbySharingManager", "Failed to start discovery", error)
+            }
         }
     }
 

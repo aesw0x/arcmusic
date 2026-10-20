@@ -106,7 +106,9 @@ fun ReceiveScreen(
             android.Manifest.permission.BLUETOOTH_SCAN,
             android.Manifest.permission.BLUETOOTH_ADVERTISE,
             android.Manifest.permission.BLUETOOTH_CONNECT,
-            android.Manifest.permission.NEARBY_WIFI_DEVICES
+            android.Manifest.permission.NEARBY_WIFI_DEVICES,
+            android.Manifest.permission.ACCESS_FINE_LOCATION,
+            android.Manifest.permission.ACCESS_COARSE_LOCATION
         )
     } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
         permissionsList += listOf(
