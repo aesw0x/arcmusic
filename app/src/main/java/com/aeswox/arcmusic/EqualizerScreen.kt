@@ -33,6 +33,7 @@ import com.aeswox.arcmusic.playback.EqualizerViewModel
 import com.aeswox.arcmusic.ui.components.CustomVerticalSlider
 import com.aeswox.arcmusic.ui.animations.jellyClick
 import com.aeswox.arcmusic.ui.components.*
+import com.aeswox.arcmusic.ui.haptics.AppHaptics
 
 // ─────────────────────────────────────────────────────────
 // Preset data  (calibrated to the ±15 dB scale)
@@ -84,7 +85,10 @@ fun EqualizerScreen(
             CenterAlignedTopAppBar(
                 title = { Text("Equalizer", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
-                    JellyIconButton(onClick = onNavigateBack) {
+                    JellyIconButton(onClick = { 
+                        AppHaptics.click()
+                        onNavigateBack() 
+                    }) {
                         Icon(HugeIcons.ArrowLeft, contentDescription = "Back")
                     }
                 },
@@ -101,7 +105,10 @@ fun EqualizerScreen(
                         label = "EqPowerBtnContent"
                     )
                     FilledIconButton(
-                        onClick = { viewModel.setEnabled(!isEnabled) },
+                        onClick = { 
+                            AppHaptics.toggle(!isEnabled)
+                            viewModel.setEnabled(!isEnabled) 
+                        },
                         enabled = canEditEffects,
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = containerColor,
@@ -213,6 +220,7 @@ fun EqualizerScreen(
             JellyOutlinedButton(
                 enabled = canEditEffects,
                 onClick = {
+                    AppHaptics.click()
                     viewModel.applyPreset(EQ_PRESETS.first { it.name == "Flat" }.levels)
                 },
                 modifier = Modifier
@@ -403,7 +411,10 @@ private fun PresetsSection(
                                     else MaterialTheme.colorScheme.outlineVariant,
                             shape = RoundedCornerShape(24.dp)
                         )
-                        .jellyClick { onPresetSelected(preset) }
+                        .jellyClick { 
+                            AppHaptics.click()
+                            onPresetSelected(preset) 
+                        }
                         .padding(horizontal = 18.dp, vertical = 10.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -494,7 +505,10 @@ private fun EffectCard(
 
                 Switch(
                     checked = enabled,
-                    onCheckedChange = onEnabledChange,
+                    onCheckedChange = {
+                        AppHaptics.toggle(it)
+                        onEnabledChange(it)
+                    },
                     enabled = allowed,
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = MaterialTheme.colorScheme.onPrimary,

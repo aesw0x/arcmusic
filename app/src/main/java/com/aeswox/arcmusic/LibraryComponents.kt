@@ -885,6 +885,7 @@ fun LibraryMainSection(
     }
 
     val handlePlayAll = {
+        AppHaptics.click()
         val tracksToPlay = when (tabName) {
             "Tracks" -> sortedTracks.mapNotNull { it.track }
             "Albums" -> sortedAlbums.flatMap { a -> trackEntities.filter { it.album == a.title }.sortedBy { it.trackNumber ?: 0 } }
@@ -897,6 +898,7 @@ fun LibraryMainSection(
     }
 
     val handleShuffleAll = {
+        AppHaptics.click()
         val tracksToPlay = when (tabName) {
             "Tracks" -> sortedTracks.mapNotNull { it.track }.shuffled()
             "Albums" -> sortedAlbums.shuffled().flatMap { a -> trackEntities.filter { it.album == a.title }.sortedBy { it.trackNumber ?: 0 } }
@@ -961,7 +963,10 @@ fun LibraryMainSection(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { sortExpanded = true }) {
+                            IconButton(onClick = { 
+                                AppHaptics.click()
+                                sortExpanded = true 
+                            }) {
                                 Icon(
                                     imageVector = HugeIcons.Filter,
                                     contentDescription = "Sort by",
@@ -975,7 +980,10 @@ fun LibraryMainSection(
                                     .size(40.dp)
                                     .clip(CircleShape)
                                     .background(MaterialTheme.colorScheme.primary)
-                                    .clickable { onCreatePlaylistClick() },
+                                    .clickable { 
+                                        AppHaptics.click()
+                                        onCreatePlaylistClick() 
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(

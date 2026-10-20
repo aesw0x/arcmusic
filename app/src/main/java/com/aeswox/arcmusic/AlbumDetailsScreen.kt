@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import com.aeswox.arcmusic.db.entities.getQualityBadgeResId
 import com.aeswox.arcmusic.ui.components.HugeIcons
+import com.aeswox.arcmusic.ui.haptics.AppHaptics
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -196,7 +197,10 @@ fun AlbumDetailsScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     JellyButton(
-                                        onClick = { viewModel.setCurrentlyPlaying(sortedTracks.firstOrNull(), sortedTracks) },
+                                        onClick = { 
+                                            AppHaptics.click()
+                                            viewModel.setCurrentlyPlaying(sortedTracks.firstOrNull(), sortedTracks) 
+                                        },
                                         modifier = Modifier.weight(1f).height(56.dp),
                                         colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White),
                                         shape = RoundedCornerShape(28.dp)
@@ -207,6 +211,7 @@ fun AlbumDetailsScreen(
                                     }
                                     JellyButton(
                                         onClick = {
+                                            AppHaptics.click()
                                             val shuffled = sortedTracks.shuffled()
                                             viewModel.setCurrentlyPlaying(shuffled.firstOrNull(), shuffled)
                                         },
@@ -233,8 +238,12 @@ fun AlbumDetailsScreen(
                             tracks = sortedTracks,
                             showArtwork = !immersiveMode,
                             immersive = immersiveMode,
-                            onPlay = { viewModel.setCurrentlyPlaying(sortedTracks.firstOrNull(), sortedTracks) },
+                            onPlay = { 
+                                AppHaptics.click()
+                                viewModel.setCurrentlyPlaying(sortedTracks.firstOrNull(), sortedTracks) 
+                            },
                             onShuffle = { 
+                                AppHaptics.click()
                                 val shuffled = sortedTracks.shuffled()
                                 viewModel.setCurrentlyPlaying(shuffled.firstOrNull(), shuffled) 
                             },

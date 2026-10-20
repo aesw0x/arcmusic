@@ -39,6 +39,7 @@ import kotlin.math.roundToInt
 import com.aeswox.arcmusic.ui.animations.jellyClick
 import com.aeswox.arcmusic.ui.animations.jelly
 import com.aeswox.arcmusic.ui.components.*
+import com.aeswox.arcmusic.ui.haptics.AppHaptics
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -146,7 +147,10 @@ fun SleepTimerContent(
                     ) {
                         // Hours
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            JellyIconButton(onClick = { if (customHours < 23) customHours++ else customHours = 0 }) {
+                            JellyIconButton(onClick = { 
+                                AppHaptics.tick()
+                                if (customHours < 23) customHours++ else customHours = 0 
+                            }) {
                                 Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Up", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Text(
@@ -154,7 +158,10 @@ fun SleepTimerContent(
                                 style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
-                            JellyIconButton(onClick = { if (customHours > 0) customHours-- else customHours = 23 }) {
+                            JellyIconButton(onClick = { 
+                                AppHaptics.tick()
+                                if (customHours > 0) customHours-- else customHours = 23 
+                            }) {
                                 Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Down", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Text(
@@ -173,7 +180,10 @@ fun SleepTimerContent(
 
                         // Mins
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            JellyIconButton(onClick = { if (customMins < 59) customMins++ else customMins = 0 }) {
+                            JellyIconButton(onClick = { 
+                                AppHaptics.tick()
+                                if (customMins < 59) customMins++ else customMins = 0 
+                            }) {
                                 Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Up", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Text(
@@ -181,7 +191,10 @@ fun SleepTimerContent(
                                 style = MaterialTheme.typography.displayLarge.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
-                            JellyIconButton(onClick = { if (customMins > 0) customMins-- else customMins = 59 }) {
+                            JellyIconButton(onClick = { 
+                                AppHaptics.tick()
+                                if (customMins > 0) customMins-- else customMins = 59 
+                            }) {
                                 Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Down", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Text(
@@ -302,7 +315,10 @@ fun SleepTimerContent(
                             .height(110.dp)
                             .clip(RoundedCornerShape(16.dp))
                             .background(eotBgColor)
-                            .jellyClick { selectedPreset = -1 },
+                            .jellyClick { 
+                                AppHaptics.click()
+                                selectedPreset = -1 
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Column(
@@ -332,6 +348,7 @@ fun SleepTimerContent(
                         .clip(RoundedCornerShape(16.dp))
                         .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                         .jellyClick { 
+                            AppHaptics.click()
                             customHours = selectedPreset.coerceAtLeast(0) / 60
                             customMins = selectedPreset.coerceAtLeast(0) % 60
                             isCustomView = true 
@@ -391,7 +408,10 @@ fun SleepTimerContent(
                         }
                         Switch(
                             checked = finishCurrentSong,
-                            onCheckedChange = { finishCurrentSong = it }
+                            onCheckedChange = { 
+                                AppHaptics.toggle(it)
+                                finishCurrentSong = it 
+                            }
                         )
                     }
                 }
@@ -403,6 +423,7 @@ fun SleepTimerContent(
             if (custom) {
                 JellyButton(
                     onClick = { 
+                        AppHaptics.click()
                         val totalMins = customHours * 60 + customMins
                         if (totalMins > 0) onStart(totalMins, finishCurrentSong)
                     },
@@ -451,7 +472,10 @@ fun SleepTimerContent(
                                     .height(56.dp)
                                     .clip(RoundedCornerShape(28.dp))
                                     .background(MaterialTheme.colorScheme.primaryContainer)
-                                    .jellyClick { expanded = !expanded }
+                                    .jellyClick { 
+                                        AppHaptics.click()
+                                        expanded = !expanded 
+                                    }
                                     .padding(horizontal = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
@@ -471,7 +495,10 @@ fun SleepTimerContent(
                                 }
                                 
                                 JellyIconButton(
-                                    onClick = { onClear() },
+                                    onClick = { 
+                                        AppHaptics.destructive()
+                                        onClear() 
+                                    },
                                     modifier = Modifier
                                         .size(36.dp)
                                         .clip(CircleShape)
@@ -499,7 +526,10 @@ fun SleepTimerContent(
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     JellyButton(
-                                        onClick = { onStart(remainingMins + 5, finishCurrentSong) },
+                                        onClick = { 
+                                            AppHaptics.click()
+                                            onStart(remainingMins + 5, finishCurrentSong) 
+                                        },
                                         modifier = Modifier
                                             .weight(1f)
                                             .height(48.dp),
@@ -512,7 +542,10 @@ fun SleepTimerContent(
                                         Text("+5 min", fontWeight = FontWeight.Bold)
                                     }
                                     JellyButton(
-                                        onClick = { onStart(remainingMins + 15, finishCurrentSong) },
+                                        onClick = { 
+                                            AppHaptics.click()
+                                            onStart(remainingMins + 15, finishCurrentSong) 
+                                        },
                                         modifier = Modifier
                                             .weight(1f)
                                             .height(48.dp),
@@ -529,7 +562,10 @@ fun SleepTimerContent(
                         }
                     } else {
                         JellyButton(
-                            onClick = { onStart(selectedPreset, finishCurrentSong) },
+                            onClick = { 
+                                AppHaptics.click()
+                                onStart(selectedPreset, finishCurrentSong) 
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(56.dp),
@@ -568,7 +604,10 @@ fun PresetBlock(
             .height(110.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(bgColor)
-            .jellyClick { onClick() },
+            .jellyClick { 
+                AppHaptics.click()
+                onClick() 
+            },
         contentAlignment = Alignment.Center
     ) {
         Column(

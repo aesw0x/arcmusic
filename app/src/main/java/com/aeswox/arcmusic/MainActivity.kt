@@ -293,6 +293,7 @@ class MainActivity : ComponentActivity() {
     }
     
     override fun onCreate(savedInstanceState: Bundle?) {
+        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         
@@ -1678,6 +1679,7 @@ fun MusicHomeScreen(
     }
 
     val onSongClick: (Track, List<Track>?) -> Unit = { song, queue ->
+        com.aeswox.arcmusic.ui.haptics.AppHaptics.click()
         viewModel.setCurrentlyPlaying(song, queue)
         viewModel.setMiniPlayerVisible(true)
     }
@@ -2070,6 +2072,7 @@ fun HeroSection(
                     .clip(RoundedCornerShape(36.dp))
                     .jellyClick {
                         if (!isNowPlayingMode) {
+                            com.aeswox.arcmusic.ui.haptics.AppHaptics.click()
                             when (suggestedItem) {
                                 is HeroCardItem.AlbumItem -> onNavigateToAlbum(suggestedItem.album.title)
                                 is HeroCardItem.ArtistItem -> onNavigateToArtist(suggestedItem.artist.name)
@@ -2250,6 +2253,7 @@ fun HeroSection(
                             AppPrimaryButton(
                                 text = "Play",
                                 onClick = { 
+                                    com.aeswox.arcmusic.ui.haptics.AppHaptics.click()
                                     when (suggestedItem) {
                                         is HeroCardItem.TrackItem -> onPlayClick(suggestedItem.track, displayPicks.mapNotNull { if (it is HeroCardItem.TrackItem) it.track else null })
                                         is HeroCardItem.AlbumItem -> viewModel.playAlbum(suggestedItem.album.title)
@@ -2901,7 +2905,10 @@ fun SearchScreenContent(viewModel: MusicViewModel, modifier: Modifier = Modifier
                         TopResultSection(
                             track = data.tracks.first(), 
                             modifier = Modifier.padding(horizontal = 24.dp),
-                            onClick = { viewModel.setCurrentlyPlaying(data.tracks.first(), data.tracks) }
+                            onClick = { 
+                                com.aeswox.arcmusic.ui.haptics.AppHaptics.click()
+                                viewModel.setCurrentlyPlaying(data.tracks.first(), data.tracks) 
+                            }
                         ) 
                     }
                 }
@@ -2911,7 +2918,10 @@ fun SearchScreenContent(viewModel: MusicViewModel, modifier: Modifier = Modifier
                         SongsResultSection(
                             tracks = tracksToShow, 
                             modifier = Modifier.padding(horizontal = 24.dp),
-                            onTrackClick = { viewModel.setCurrentlyPlaying(it, data.tracks) }
+                            onTrackClick = { 
+                                com.aeswox.arcmusic.ui.haptics.AppHaptics.click()
+                                viewModel.setCurrentlyPlaying(it, data.tracks) 
+                            }
                         ) 
                     }
                 }

@@ -35,6 +35,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.aeswox.arcmusic.AppIconButton
 import com.aeswox.arcmusic.ui.animations.jellyClick
+import com.aeswox.arcmusic.ui.haptics.AppHaptics
 import kotlinx.coroutines.launch
 
 data class MorphingMenuItem(
@@ -108,7 +109,10 @@ fun MorphingMenu(
         AppIconButton(
             icon = HugeIcons.MoreVert,
             contentDescription = contentDescription,
-            onClick = { open() },
+            onClick = { 
+                AppHaptics.click()
+                open() 
+            },
             tint = tint,
             size = 24.dp,
             modifier = if (buttonBackground != Color.Transparent) {
@@ -251,7 +255,14 @@ private fun MorphingMenuItemRow(
             .fillMaxWidth()
             .height(48.dp)
             .clip(RoundedCornerShape(20.dp))
-            .jellyClick(onClick = onItemClick)
+            .jellyClick {
+                if (item.isDestructive) {
+                    AppHaptics.destructive()
+                } else {
+                    AppHaptics.click()
+                }
+                onItemClick()
+            }
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

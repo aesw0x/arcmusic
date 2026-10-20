@@ -589,7 +589,10 @@ fun ArcNowPlayingScreen(
                     .fillMaxWidth()
                     .aspectRatio(0.9f)
                     .clip(RoundedCornerShape(32.dp))
-                    .clickable { showLyrics = true }
+                    .clickable { 
+                        AppHaptics.click()
+                        showLyrics = true 
+                    }
                     .graphicsLayer {
                         compositingStrategy = CompositingStrategy.Offscreen
                     }
@@ -953,7 +956,10 @@ fun ArcNowPlayingScreen(
                                     .align(Alignment.CenterEnd)
                                     .size(32.dp)
                                     .clip(CircleShape)
-                                    .clickable { currentSheet = NowPlayingSheet.OPTIONS },
+                                    .clickable { 
+                                        AppHaptics.click()
+                                        currentSheet = NowPlayingSheet.OPTIONS 
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -993,6 +999,7 @@ fun ArcNowPlayingScreen(
                             // Far Left — Lyrics
                             IconButton(
                                 onClick = { 
+                                    AppHaptics.click()
                                     if (showLyrics) {
                                         showLyrics = false
                                     } else {
@@ -1402,8 +1409,10 @@ fun ArcNowPlayingScreen(
                             .jellyClick { 
                                 currentSheet = null 
                                 if (title == "Add to playlist") {
+                                    AppHaptics.click()
                                     currentSheet = NowPlayingSheet.ADD_TO_PLAYLIST
                                 } else if (title == "Sleep timer") {
+                                    AppHaptics.click()
                                     currentSheet = NowPlayingSheet.SLEEP_TIMER
                                 } else if (title == "Add to favorites" || title == "Remove from favorites") {
 
@@ -1414,7 +1423,7 @@ fun ArcNowPlayingScreen(
                                     }
 
                                 } else if (title == "Go to album") {
-
+                                    AppHaptics.click()
                                     songToPlay?.let { track ->
 
                                         onNavigateToAlbum(track.album)
@@ -1422,7 +1431,7 @@ fun ArcNowPlayingScreen(
                                     }
 
                                 } else if (title == "Go to artist") {
-
+                                    AppHaptics.click()
                                     songToPlay?.let { track ->
 
                                         onNavigateToArtist(track.artist)
@@ -1430,7 +1439,7 @@ fun ArcNowPlayingScreen(
                                     }
 
                                 } else if (title == "Share") {
-
+                                    AppHaptics.click()
                                     songToPlay?.let { track ->
 
                                         onNavigateToShare("track", track.id)
@@ -1438,7 +1447,7 @@ fun ArcNowPlayingScreen(
                                     }
 
                                 } else if (title == "Details") {
-
+                                    AppHaptics.click()
                                     showDetailsDialog = true
 
                                 }

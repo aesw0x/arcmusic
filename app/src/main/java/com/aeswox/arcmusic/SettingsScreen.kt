@@ -30,6 +30,7 @@ import dev.chrisbanes.haze.haze
 import com.aeswox.arcmusic.ui.animations.jellyClick
 import com.aeswox.arcmusic.ui.animations.jelly
 import com.aeswox.arcmusic.ui.components.*
+import com.aeswox.arcmusic.ui.haptics.AppHaptics
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.lazy.items
@@ -94,7 +95,6 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val hazeState = remember { HazeState() }
-    var aboutClickCount by remember { mutableIntStateOf(0) }
     val context = androidx.compose.ui.platform.LocalContext.current
     var showApiKeyDialog by remember { mutableStateOf(false) }
     var apiKeyInput by remember { mutableStateOf("") }
@@ -266,7 +266,10 @@ fun SettingsScreen(
                             trailingContent = {
                                 Switch(
                                     checked = usbDacEnabled,
-                                    onCheckedChange = onUsbDacEnabledChange
+                                    onCheckedChange = {
+                                        AppHaptics.toggle(it)
+                                        onUsbDacEnabledChange(it)
+                                    }
                                 )
                             },
                             showArrow = false
@@ -277,7 +280,10 @@ fun SettingsScreen(
                             trailingContent = {
                                 Switch(
                                     checked = autoplayEnabled,
-                                    onCheckedChange = { onAutoplayEnabledChange(it) }
+                                    onCheckedChange = { 
+                                        AppHaptics.toggle(it)
+                                        onAutoplayEnabledChange(it) 
+                                    }
                                 )
                             },
                             showArrow = false
@@ -288,7 +294,10 @@ fun SettingsScreen(
                             trailingContent = {
                                 Switch(
                                     checked = skipSilenceEnabled,
-                                    onCheckedChange = { onSkipSilenceEnabledChange(it) }
+                                    onCheckedChange = { 
+                                        AppHaptics.toggle(it)
+                                        onSkipSilenceEnabledChange(it) 
+                                    }
                                 )
                             },
                             showArrow = false
@@ -299,7 +308,10 @@ fun SettingsScreen(
                             trailingContent = {
                                 Switch(
                                     checked = resumeOnBluetoothEnabled,
-                                    onCheckedChange = { onResumeOnBluetoothEnabledChange(it) }
+                                    onCheckedChange = { 
+                                        AppHaptics.toggle(it)
+                                        onResumeOnBluetoothEnabledChange(it) 
+                                    }
                                 )
                             },
                             showArrow = false
@@ -310,7 +322,10 @@ fun SettingsScreen(
                             trailingContent = {
                                 Switch(
                                     checked = audioDuckingEnabled,
-                                    onCheckedChange = { onAudioDuckingEnabledChange(it) }
+                                    onCheckedChange = { 
+                                        AppHaptics.toggle(it)
+                                        onAudioDuckingEnabledChange(it) 
+                                    }
                                 )
                             },
                             showArrow = false
@@ -328,6 +343,7 @@ fun SettingsScreen(
                                 Switch(
                                     checked = themeMode == ThemeMode.Dark, 
                                     onCheckedChange = { isDark -> 
+                                        AppHaptics.toggle(isDark)
                                         onThemeModeChange(if (isDark) ThemeMode.Dark else ThemeMode.Light)
                                     }
                                 )
@@ -340,7 +356,10 @@ fun SettingsScreen(
                             trailingContent = {
                                 Switch(
                                     checked = dynamicColorsEnabled, 
-                                    onCheckedChange = { onDynamicColorsEnabledChange(it) }
+                                    onCheckedChange = { 
+                                        AppHaptics.toggle(it)
+                                        onDynamicColorsEnabledChange(it) 
+                                    }
                                 )
                             },
                             showArrow = false
@@ -351,7 +370,10 @@ fun SettingsScreen(
                             trailingContent = {
                                 Switch(
                                     checked = heroCardPlayingStateEnabled,
-                                    onCheckedChange = { onHeroCardPlayingStateEnabledChange(it) }
+                                    onCheckedChange = { 
+                                        AppHaptics.toggle(it)
+                                        onHeroCardPlayingStateEnabledChange(it) 
+                                    }
                                 )
                             },
                             showArrow = false
@@ -362,7 +384,10 @@ fun SettingsScreen(
                             trailingContent = {
                                 Switch(
                                     checked = heroCardIncludeArtistsAndAlbums,
-                                    onCheckedChange = { onHeroCardIncludeArtistsAndAlbumsChange(it) }
+                                    onCheckedChange = { 
+                                        AppHaptics.toggle(it)
+                                        onHeroCardIncludeArtistsAndAlbumsChange(it) 
+                                    }
                                 )
                             },
                             showArrow = false
@@ -452,15 +477,13 @@ fun SettingsScreen(
                 
 
                 item {
-                    if (developerOptionsUnlocked) {
-                        SettingsGroup(title = "DEVELOPER") {
-                            SettingsItem(
-                                icon = Icons.Outlined.BugReport,
-                                text = "Developer Options",
-                                onClick = onNavigateToDeveloperOptions,
-                                showArrow = true
-                            )
-                        }
+                    SettingsGroup(title = "ADVANCED") {
+                        SettingsItem(
+                            icon = Icons.Outlined.BugReport,
+                            text = "Advanced Settings",
+                            onClick = onNavigateToDeveloperOptions,
+                            showArrow = true
+                        )
                     }
                 }
 
@@ -470,18 +493,6 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .jellyClick {
-                                    if (!developerOptionsUnlocked) {
-                                        aboutClickCount++
-                                        if (aboutClickCount == 7) {
-                                            onUnlockDeveloperOptions()
-                                            android.widget.Toast.makeText(context, "Developer options unlocked", android.widget.Toast.LENGTH_SHORT).show()
-                                        } else if (aboutClickCount >= 3) {
-                                            val remaining = 7 - aboutClickCount
-                                            android.widget.Toast.makeText(context, "You are $remaining steps away from being a developer", android.widget.Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-                                }
                                 .padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
                             Box(
@@ -529,7 +540,10 @@ fun SettingsScreen(
                             trailingContent = {
                                 Switch(
                                     checked = autoUpdateEnabled,
-                                    onCheckedChange = { onAutoUpdateEnabledChange(it) }
+                                    onCheckedChange = { 
+                                        AppHaptics.toggle(it)
+                                        onAutoUpdateEnabledChange(it) 
+                                    }
                                 )
                             },
                             showArrow = false
@@ -595,7 +609,10 @@ fun SettingsItem(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .jellyClick(enabled = enabled) { onClick() }
+            .jellyClick(enabled = enabled && trailingContent == null) { 
+                AppHaptics.click()
+                onClick() 
+            }
             .padding(horizontal = 16.dp, vertical = 12.dp)
             .alpha(if (enabled) 1f else 0.5f)
     ) {
@@ -666,7 +683,10 @@ private fun LyricsStyleChip(
         modifier = Modifier
             .clip(RoundedCornerShape(6.dp))
             .background(bgColor)
-            .jellyClick { onClick() }
+            .jellyClick { 
+                AppHaptics.click()
+                onClick() 
+            }
             .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Text(

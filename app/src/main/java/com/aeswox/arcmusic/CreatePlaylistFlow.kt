@@ -39,6 +39,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import com.aeswox.arcmusic.ui.animations.jellyClick
 import com.aeswox.arcmusic.ui.animations.jelly
 import com.aeswox.arcmusic.ui.components.*
+import com.aeswox.arcmusic.ui.haptics.AppHaptics
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -97,7 +98,10 @@ fun CreatePlaylistFlow(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (currentStep == 1) {
-                        JellyTextButton(onClick = onDismiss) {
+                        JellyTextButton(onClick = { 
+                            AppHaptics.click()
+                            onDismiss() 
+                        }) {
                             Text("close", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                         }
                         Text(
@@ -107,7 +111,12 @@ fun CreatePlaylistFlow(
                         )
                         val hasSelection = selectedTrackIds.isNotEmpty()
                         JellyTextButton(
-                            onClick = { if (hasSelection) currentStep = 2 },
+                            onClick = { 
+                                if (hasSelection) {
+                                    AppHaptics.click()
+                                    currentStep = 2 
+                                }
+                            },
                             enabled = hasSelection,
                             colors = ButtonDefaults.textButtonColors(
                                 contentColor = if (hasSelection) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
@@ -125,7 +134,10 @@ fun CreatePlaylistFlow(
                             )
                         }
                     } else {
-                        JellyIconButton(onClick = { currentStep = 1 }) {
+                        JellyIconButton(onClick = { 
+                            AppHaptics.click()
+                            currentStep = 1 
+                        }) {
                             Icon(HugeIcons.ArrowLeft, contentDescription = "Back")
                         }
                         Text(
@@ -176,6 +188,7 @@ fun CreatePlaylistFlow(
                                         else Color.Transparent
                                     )
                                     .jellyClick {
+                                        AppHaptics.tick()
                                         if (isSelected) {
                                             selectedTrackIds.remove(track.id)
                                         } else {
@@ -252,6 +265,7 @@ fun CreatePlaylistFlow(
                                 .clip(RoundedCornerShape(32.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
                                 .jellyClick {
+                                    AppHaptics.click()
                                     photoPickerLauncher.launch(
                                         androidx.activity.result.PickVisualMediaRequest(
                                             ActivityResultContracts.PickVisualMedia.ImageOnly
@@ -316,6 +330,7 @@ fun CreatePlaylistFlow(
                         
                         JellyButton(
                             onClick = {
+                                AppHaptics.click()
                                 onCreatePlaylist(playlistName, playlistDescription, coverArtUri?.toString(), selectedTrackIds.toList())
                                 onDismiss()
                             },

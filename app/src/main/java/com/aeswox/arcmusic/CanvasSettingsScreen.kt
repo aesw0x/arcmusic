@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aeswox.arcmusic.ui.components.CustomHorizontalSlider
+import com.aeswox.arcmusic.ui.haptics.AppHaptics
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 import dev.chrisbanes.haze.hazeChild
@@ -55,7 +56,10 @@ fun CanvasSettingsScreen(
                         trailingContent = {
                             Switch(
                                 checked = canvasEnabled,
-                                onCheckedChange = { onCanvasEnabledChange(it) }
+                                onCheckedChange = { 
+                                    AppHaptics.toggle(it)
+                                    onCanvasEnabledChange(it) 
+                                }
                             )
                         },
                         showArrow = false
@@ -120,7 +124,10 @@ fun CanvasSettingsScreen(
                     SettingsItem(
                         icon = HugeIcons.Delete,
                         text = "Clear Cache",
-                        onClick = onClearCache,
+                        onClick = {
+                            AppHaptics.destructive()
+                            onClearCache()
+                        },
                         showArrow = false
                     )
                 }
@@ -132,7 +139,10 @@ fun CanvasSettingsScreen(
                         icon = HugeIcons.Download,
                         text = "Fetch All Canvases",
                         trailingText = "Downloads videos for offline playback",
-                        onClick = onFetchCanvases,
+                        onClick = {
+                            AppHaptics.click()
+                            onFetchCanvases()
+                        },
                         showArrow = false
                     )
                 }
@@ -148,7 +158,10 @@ fun CanvasSettingsScreen(
                 )
             },
             navigationIcon = {
-                IconButton(onClick = onNavigateBack) {
+                IconButton(onClick = { 
+                    AppHaptics.click()
+                    onNavigateBack() 
+                }) {
                     Icon(
                         imageVector = HugeIcons.ArrowLeft,
                         contentDescription = "Back"

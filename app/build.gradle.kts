@@ -28,8 +28,8 @@ android {
     applicationId = "com.aeswox.arcmusic"
     minSdk = 31
     targetSdk = 36
-    versionCode = 23
-    versionName = "2.1.2"
+    versionCode = 24
+    versionName = "2.1.3"
     multiDexEnabled = true
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

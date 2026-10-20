@@ -35,3 +35,4 @@ node_modules
 *.jks*
 keystore*.txt
 app/crash_log.txt
+.vscode/

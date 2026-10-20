@@ -891,7 +891,10 @@ fun MiniPlayer(
             .fillMaxWidth()
             .height(76.dp)
             .then(if (applyShapeAndBackground) Modifier.clip(RoundedCornerShape(AppCornerRadius)).glassEffect(hazeState, tintTransparency, noiseFactor, tintOverride = glassTint, tintAlphaOverride = glassAlpha) else Modifier)
-            .jellyClick(scaleDownTo = 0.92f, onClick = onClick)
+            .jellyClick(scaleDownTo = 0.92f, onClick = {
+                com.aeswox.arcmusic.ui.haptics.AppHaptics.click()
+                onClick()
+            })
             .padding(horizontal = 16.dp)
     ) {
         AsyncImage(
@@ -1133,7 +1136,10 @@ fun AppPrimaryButton(
     contentPadding: PaddingValues = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
 ) {
     JellyButton(
-        onClick = onClick,
+        onClick = {
+            com.aeswox.arcmusic.ui.haptics.AppHaptics.click()
+            onClick()
+        },
         colors = ButtonDefaults.buttonColors(
             containerColor = containerColor,
             contentColor = contentColor

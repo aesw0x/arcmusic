@@ -21,6 +21,7 @@ import com.aeswox.arcmusic.ui.animations.jellyClick
 import com.aeswox.arcmusic.ui.animations.physicsBounceOverscroll
 import com.aeswox.arcmusic.ui.components.CustomHorizontalSlider
 import com.aeswox.arcmusic.ui.components.JellyIconButton
+import com.aeswox.arcmusic.ui.haptics.AppHaptics
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 
@@ -106,7 +107,10 @@ fun NowPlayingStyleScreen(
                                 )
                                 Switch(
                                     checked = dummyToggle,
-                                    onCheckedChange = { dummyToggle = it }
+                                    onCheckedChange = { 
+                                        AppHaptics.toggle(it)
+                                        dummyToggle = it 
+                                    }
                                 )
                             }
                             Spacer(modifier = Modifier.height(16.dp))
@@ -138,6 +142,7 @@ fun NowPlayingStyleScreen(
                             Spacer(modifier = Modifier.height(24.dp))
                             Button(
                                 onClick = { 
+                                    AppHaptics.click()
                                     dummySlider1 = 1.0f
                                     dummySlider2 = 0.5f
                                     dummyToggle = true
@@ -164,7 +169,10 @@ private fun AppearanceHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        JellyIconButton(onClick = onNavigateBack) {
+        JellyIconButton(onClick = { 
+            AppHaptics.click()
+            onNavigateBack() 
+        }) {
             Icon(
                 imageVector = HugeIcons.ArrowLeft,
                 contentDescription = "Back",
@@ -204,7 +212,10 @@ private fun NowPlayingStyleChip(
         modifier = Modifier
             .clip(RoundedCornerShape(6.dp))
             .background(bgColor)
-            .jellyClick { onClick() }
+            .jellyClick { 
+                AppHaptics.click()
+                onClick() 
+            }
             .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Text(

@@ -15,6 +15,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import com.aeswox.arcmusic.ui.components.FavoriteHeartIcon
 import com.aeswox.arcmusic.ui.components.HugeIcons
+import com.aeswox.arcmusic.ui.haptics.AppHaptics
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -341,7 +342,10 @@ fun ArtistHeroSection(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             JellyButton(
-                                onClick = { if (tracks.isNotEmpty()) viewModel.setCurrentlyPlaying(tracks.first(), tracks) },
+                                onClick = { 
+                                    AppHaptics.click()
+                                    if (tracks.isNotEmpty()) viewModel.setCurrentlyPlaying(tracks.first(), tracks) 
+                                },
                                 modifier = Modifier.weight(1f).height(56.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White),
                                 shape = RoundedCornerShape(28.dp)
@@ -352,7 +356,10 @@ fun ArtistHeroSection(
                             }
 
                             JellyButton(
-                                onClick = { if (tracks.isNotEmpty()) viewModel.setCurrentlyPlaying(tracks.random(), tracks.shuffled()) },
+                                onClick = { 
+                                    AppHaptics.click()
+                                    if (tracks.isNotEmpty()) viewModel.setCurrentlyPlaying(tracks.random(), tracks.shuffled()) 
+                                },
                                 modifier = Modifier.weight(1f).height(56.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = immersiveAccent, contentColor = Color.White),
                                 shape = RoundedCornerShape(28.dp)
@@ -364,7 +371,10 @@ fun ArtistHeroSection(
 
                             if (artist != null) {
                                 JellyIconButton(
-                                    onClick = { viewModel.toggleArtistFavorite(listOf(artist.id), !artist.isFavorite) },
+                                    onClick = { 
+                                        AppHaptics.favorite(!artist.isFavorite)
+                                        viewModel.toggleArtistFavorite(listOf(artist.id), !artist.isFavorite) 
+                                    },
                                     modifier = Modifier
                                         .size(56.dp)
                                         .clip(CircleShape)
@@ -400,7 +410,10 @@ fun ArtistHeroSection(
 
                 if (artist != null && !immersive) {
                     JellyIconButton(
-                        onClick = { viewModel.toggleArtistFavorite(listOf(artist.id), !artist.isFavorite) },
+                        onClick = { 
+                            AppHaptics.favorite(!artist.isFavorite)
+                            viewModel.toggleArtistFavorite(listOf(artist.id), !artist.isFavorite) 
+                        },
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .padding(bottom = 24.dp, end = 24.dp)
@@ -494,7 +507,10 @@ fun ArtistHeroSection(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     JellyButton(
-                        onClick = { if (tracks.isNotEmpty()) viewModel.setCurrentlyPlaying(tracks.first(), tracks) },
+                        onClick = { 
+                            AppHaptics.click()
+                            if (tracks.isNotEmpty()) viewModel.setCurrentlyPlaying(tracks.first(), tracks) 
+                        },
                         modifier = Modifier.weight(1f).height(56.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
                         shape = RoundedCornerShape(28.dp)
@@ -505,7 +521,10 @@ fun ArtistHeroSection(
                     }
 
                     JellyButton(
-                        onClick = { if (tracks.isNotEmpty()) viewModel.setCurrentlyPlaying(tracks.random(), tracks.shuffled()) },
+                        onClick = { 
+                            AppHaptics.click()
+                            if (tracks.isNotEmpty()) viewModel.setCurrentlyPlaying(tracks.random(), tracks.shuffled()) 
+                        },
                         modifier = Modifier.weight(1f).height(56.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.8f), contentColor = MaterialTheme.colorScheme.onSurface),
                         shape = RoundedCornerShape(28.dp)

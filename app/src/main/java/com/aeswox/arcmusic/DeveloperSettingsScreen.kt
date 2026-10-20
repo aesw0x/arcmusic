@@ -117,7 +117,7 @@ fun DeveloperSettingsScreen(
         containerColor = Color.Transparent,
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Developer Options", fontWeight = FontWeight.SemiBold) },
+                title = { Text("Advanced Settings", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     JellyIconButton(onClick = onNavigateBack) {
                         Icon(HugeIcons.ArrowLeft, contentDescription = "Back")
@@ -164,7 +164,10 @@ fun DeveloperSettingsScreen(
                     }
                     Switch(
                         checked = immersiveModeEnabled,
-                        onCheckedChange = { onImmersiveModeEnabledChange(it) }
+                        onCheckedChange = { 
+                            AppHaptics.toggle(it)
+                            onImmersiveModeEnabledChange(it) 
+                        }
                     )
                 }
             }
@@ -304,7 +307,10 @@ fun DeveloperSettingsScreen(
                     )
                     Switch(
                         checked = overrideFontScaleEnabled,
-                        onCheckedChange = { onOverrideFontScaleEnabledChange(it) }
+                        onCheckedChange = { 
+                            AppHaptics.toggle(it)
+                            onOverrideFontScaleEnabledChange(it) 
+                        }
                     )
                 }
                 
@@ -406,6 +412,7 @@ fun DeveloperSettingsScreen(
                     Switch(
                         checked = nfcAlwaysListen,
                         onCheckedChange = { enabled ->
+                            AppHaptics.toggle(enabled)
                             if (!enabled) {
                                 onNfcAlwaysListenChange(false)
                             } else {

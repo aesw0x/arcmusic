@@ -33,6 +33,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.aeswox.arcmusic.ui.animations.jellyClick
 import com.aeswox.arcmusic.ui.animations.jelly
 import com.aeswox.arcmusic.ui.components.*
+import com.aeswox.arcmusic.ui.haptics.AppHaptics
 
 data class PlaylistSimple(
     val title: String,
@@ -128,6 +129,7 @@ fun AddToPlaylistContent(
                     
                     JellyButton(
                         onClick = {
+                            AppHaptics.click()
                             if (playlistName.isNotBlank() && trackIds.isNotEmpty()) {
                                 viewModel.createPlaylist(playlistName, null, null, trackIds)
                             } else if (playlistName.isNotBlank()) {
@@ -152,7 +154,10 @@ fun AddToPlaylistContent(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .jellyClick { isCreatingPlaylist = true }
+                        .jellyClick { 
+                            AppHaptics.click()
+                            isCreatingPlaylist = true 
+                        }
                         .padding(horizontal = 24.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -192,6 +197,7 @@ fun AddToPlaylistContent(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .jellyClick {
+                                    AppHaptics.click()
                                     if (trackIds.isNotEmpty()) {
                                         viewModel.addTracksToPlaylist(playlist.id, trackIds)
                                     }

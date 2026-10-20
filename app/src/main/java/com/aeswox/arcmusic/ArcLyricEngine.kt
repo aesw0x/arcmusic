@@ -2,6 +2,7 @@
 package com.aeswox.arcmusic
 
 import android.os.Build
+import com.aeswox.arcmusic.ui.haptics.AppHaptics
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
@@ -990,8 +991,14 @@ internal fun ArcLyricsPanel(
                         enabled = isSynced,
                         interactionSource = interaction,
                         indication = androidx.compose.foundation.LocalIndication.current,
-                        onClick = { onSeekToLine(line.time.toLong()) },
-                        onLongClick = { onLongPressLine() }
+                        onClick = { 
+                            AppHaptics.click()
+                            onSeekToLine(line.time.toLong()) 
+                        },
+                        onLongClick = { 
+                            AppHaptics.grab()
+                            onLongPressLine() 
+                        }
                     )
                 }
 
