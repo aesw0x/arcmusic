@@ -1,0 +1,8 @@
+Arc Music includes an FFmpeg 6.0 native decoder build from upstream commit
+ea3d24bbe3c58b171e55fe2151fc7ffaca3ab3d2. It is configured with the AC-3 and
+E-AC-3 audio decoders only and is licensed under LGPL 2.1 or later. The complete
+matching FFmpeg source snapshot is included in the project's decoder-ffmpeg/
+ffmpeg-n6.0-source.tar.gz archive. See decoder-ffmpeg/README.md for build details.
+
+The AndroidX Media3 FFmpeg audio renderer is version 1.5.0 and is Apache-2.0
+licensed. Its upstream copyright and license notices are retained in source.

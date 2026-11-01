@@ -26,3 +26,4 @@ dependencyResolutionManagement {
 rootProject.name = "Serene Sonic"
 
 include(":app")
+include(":decoder-ffmpeg")

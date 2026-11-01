@@ -92,6 +92,7 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val con
     private val RESUME_ON_BLUETOOTH_ENABLED_KEY = booleanPreferencesKey("resume_on_bluetooth_enabled")
     private val AUDIO_DUCKING_ENABLED_KEY = booleanPreferencesKey("audio_ducking_enabled")
     private val USB_DAC_ENABLED_KEY = booleanPreferencesKey("usb_dac_enabled")
+    private val FFMPEG_EAC3_ENABLED_KEY = booleanPreferencesKey("ffmpeg_eac3_enabled")
     private val APP_ICON_VARIANT_KEY = stringPreferencesKey("app_icon_variant")
     private val GEMINI_API_KEY = stringPreferencesKey("gemini_api_key")
     private val DEVELOPER_OPTIONS_UNLOCKED_KEY = booleanPreferencesKey("developer_options_unlocked")
@@ -539,6 +540,10 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val con
         preferences[USB_DAC_ENABLED_KEY] ?: false
     }
 
+    val ffmpegEac3Enabled: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[FFMPEG_EAC3_ENABLED_KEY] ?: false
+    }
+
     suspend fun setAutoplayEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[AUTOPLAY_ENABLED_KEY] = enabled
@@ -566,6 +571,12 @@ class SettingsRepository @Inject constructor(@ApplicationContext private val con
     suspend fun setUsbDacEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[USB_DAC_ENABLED_KEY] = enabled
+        }
+    }
+
+    suspend fun setFfmpegEac3Enabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[FFMPEG_EAC3_ENABLED_KEY] = enabled
         }
     }
 

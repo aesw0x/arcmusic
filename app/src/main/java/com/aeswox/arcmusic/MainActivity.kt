@@ -1165,6 +1165,7 @@ class MainActivity : ComponentActivity() {
                             val immersiveModeEnabled by viewModel.immersiveModeEnabled.collectAsState()
                             val hapticsEnabled by viewModel.hapticsEnabled.collectAsState()
                             val hapticIntensity by viewModel.hapticIntensity.collectAsState()
+                            val ffmpegEac3Enabled by viewModel.ffmpegEac3Enabled.collectAsState()
                             Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
                                 DeveloperSettingsScreen(
                                     onNavigateBack = { navController.popBackStack() },
@@ -1198,6 +1199,8 @@ class MainActivity : ComponentActivity() {
                                     onHapticIntensityChange = { viewModel.setHapticIntensity(it) },
                                     nfcAlwaysListen = nfcAlwaysListen,
                                     onNfcAlwaysListenChange = { viewModel.setNfcAlwaysListen(it) },
+                                    ffmpegEac3Enabled = ffmpegEac3Enabled,
+                                    onFfmpegEac3EnabledChange = { viewModel.setFfmpegEac3Enabled(it) },
                                     physicsMass = physicsMass,
                                     physicsStiffness = physicsStiffness,
                                     physicsDampingRatio = physicsDampingRatio,

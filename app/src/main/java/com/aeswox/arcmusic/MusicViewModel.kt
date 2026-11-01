@@ -2396,6 +2396,16 @@ $catalog"""
         }
     }
 
+    val ffmpegEac3Enabled: StateFlow<Boolean> = settingsRepository.ffmpegEac3Enabled.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5000), false
+    )
+
+    fun setFfmpegEac3Enabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setFfmpegEac3Enabled(enabled)
+        }
+    }
+
     // App icon variant
     val appIconVariant: StateFlow<com.aeswox.arcmusic.data.AppIconVariant> =
         settingsRepository.appIconVariant.stateIn(

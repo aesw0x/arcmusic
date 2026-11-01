@@ -103,6 +103,8 @@ fun DeveloperSettingsScreen(
     onHapticIntensityChange: (HapticIntensity) -> Unit = {},
     nfcAlwaysListen: Boolean = false,
     onNfcAlwaysListenChange: (Boolean) -> Unit = {},
+    ffmpegEac3Enabled: Boolean = false,
+    onFfmpegEac3EnabledChange: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -426,6 +428,39 @@ fun DeveloperSettingsScreen(
                                 if (missing.isEmpty()) onNfcAlwaysListenChange(true)
                                 else nearbyPermissionLauncher.launch(missing.toTypedArray())
                             }
+                        }
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // E-AC-3 software decoder fallback
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                        Text(
+                            text = "FFmpeg Dolby Audio Decoder",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Prefer software decoding for AC-3 / E-AC-3 (Dolby Digital / Digital Plus). Audio is output as PCM; Atmos object rendering may not be available.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = ffmpegEac3Enabled,
+                        onCheckedChange = { enabled ->
+                            AppHaptics.toggle(enabled)
+                            onFfmpegEac3EnabledChange(enabled)
                         }
                     )
                 }

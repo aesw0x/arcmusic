@@ -2,8 +2,14 @@ package com.aeswox.arcmusic.playback
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.media.MediaCodecList
+import android.util.Log
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.common.Tracks
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.audio.AudioSink
@@ -22,9 +28,12 @@ import kotlinx.coroutines.flow.collectLatest
 import com.aeswox.arcmusic.data.SettingsRepository
 
 @AndroidEntryPoint
+@androidx.media3.common.util.UnstableApi
 class PlaybackService : MediaSessionService() {
 
     companion object {
+        private const val DOLBY_DIAG_TAG = "ArcDolbyDiag"
+
         /**
          * Set to true while the player is actively playing.
          * Used by MediaScannerService to defer scanning during playback.
@@ -91,7 +100,7 @@ class PlaybackService : MediaSessionService() {
                 .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
                 .build()
                 .also(usbDacOutputManager::attachSink)
-        }
+        }.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
 
         player = ExoPlayer.Builder(this)
             .setRenderersFactory(renderersFactory)
@@ -102,6 +111,34 @@ class PlaybackService : MediaSessionService() {
             .setLoadControl(loadControl)
             .setDeviceVolumeControlEnabled(true)
             .build()
+
+        val ffmpegAudioRendererIndex = (0 until player.rendererCount).firstOrNull { index ->
+            player.getRenderer(index).name == "FfmpegAudioRenderer"
+        }
+        // Keep the new software path inert until the user explicitly enables it.
+        ffmpegAudioRendererIndex?.let { rendererIndex ->
+            trackSelector.parameters = trackSelector.buildUponParameters()
+                .setRendererDisabled(rendererIndex, true)
+                .build()
+        }
+
+        if (com.aeswox.arcmusic.BuildConfig.DEBUG) {
+            val dolbyDecoderSummary = runCatching {
+                MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos
+                    .filter { codecInfo ->
+                        !codecInfo.isEncoder && codecInfo.supportedTypes.any { mime ->
+                            mime.equals("audio/eac3", ignoreCase = true) ||
+                                mime.equals("audio/eac3-joc", ignoreCase = true) ||
+                                mime.equals("audio/ac3", ignoreCase = true)
+                        }
+                    }
+                    .joinToString { codecInfo ->
+                        "${codecInfo.name}[${codecInfo.supportedTypes.joinToString()}]"
+                    }
+                    .ifEmpty { "none" }
+            }.getOrElse { "queryFailed:${it.javaClass.simpleName}:${it.message}" }
+            Log.i(DOLBY_DIAG_TAG, "platformDolbyDecoders=$dolbyDecoderSummary")
+        }
             
         player.setSeekParameters(androidx.media3.exoplayer.SeekParameters.CLOSEST_SYNC)
 
@@ -112,7 +149,98 @@ class PlaybackService : MediaSessionService() {
             ) {
                 equalizerManager.attachToAudioSession(audioSessionId)
             }
+
+            override fun onAudioInputFormatChanged(
+                eventTime: AnalyticsListener.EventTime,
+                format: androidx.media3.common.Format,
+                decoderReuseEvaluation: androidx.media3.exoplayer.DecoderReuseEvaluation?
+            ) {
+                if (com.aeswox.arcmusic.BuildConfig.DEBUG) {
+                    Log.i(
+                        DOLBY_DIAG_TAG,
+                        "audioInput eventWindow=${eventTime.windowIndex}/${eventTime.currentWindowIndex} " +
+                            "currentId=${player.currentMediaItem?.mediaId} " +
+                            "uri=${player.currentMediaItem?.localConfiguration?.uri} " +
+                            "mime=${format.sampleMimeType} codecs=${format.codecs} " +
+                            "channels=${format.channelCount} sampleRate=${format.sampleRate} " +
+                            "bitrate=${format.averageBitrate}"
+                    )
+                }
+            }
+
+            override fun onAudioDecoderInitialized(
+                eventTime: AnalyticsListener.EventTime,
+                decoderName: String,
+                initializedTimestampMs: Long,
+                initializationDurationMs: Long
+            ) {
+                if (com.aeswox.arcmusic.BuildConfig.DEBUG) {
+                    Log.i(
+                        DOLBY_DIAG_TAG,
+                        "audioDecoder eventWindow=${eventTime.windowIndex}/${eventTime.currentWindowIndex} " +
+                            "currentId=${player.currentMediaItem?.mediaId} " +
+                            "uri=${player.currentMediaItem?.localConfiguration?.uri} " +
+                            "name=$decoderName initMs=$initializationDurationMs"
+                    )
+                }
+            }
+
+            override fun onAudioSinkError(
+                eventTime: AnalyticsListener.EventTime,
+                audioSinkError: Exception
+            ) {
+                if (com.aeswox.arcmusic.BuildConfig.DEBUG) {
+                    Log.e(
+                        DOLBY_DIAG_TAG,
+                        "audioSinkError eventWindow=${eventTime.windowIndex}/${eventTime.currentWindowIndex} " +
+                            "currentId=${player.currentMediaItem?.mediaId} " +
+                            "uri=${player.currentMediaItem?.localConfiguration?.uri}",
+                        audioSinkError
+                    )
+                }
+            }
         })
+
+        if (com.aeswox.arcmusic.BuildConfig.DEBUG) {
+            player.addListener(object : Player.Listener {
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    Log.i(
+                        DOLBY_DIAG_TAG,
+                        "mediaItemTransition id=${mediaItem?.mediaId} " +
+                            "uri=${mediaItem?.localConfiguration?.uri} " +
+                            "title=${mediaItem?.mediaMetadata?.title} " +
+                            "artist=${mediaItem?.mediaMetadata?.artist} reason=$reason"
+                    )
+                }
+
+                override fun onTracksChanged(tracks: Tracks) {
+                    tracks.groups.forEach { group ->
+                        if (group.type == C.TRACK_TYPE_AUDIO) {
+                            for (trackIndex in 0 until group.length) {
+                                val format = group.getTrackFormat(trackIndex)
+                                Log.i(
+                                    DOLBY_DIAG_TAG,
+                                    "audioTrack supported=${group.isTrackSupported(trackIndex)} " +
+                                        "selected=${group.isTrackSelected(trackIndex)} " +
+                                        "mime=${format.sampleMimeType} codecs=${format.codecs} " +
+                                        "channels=${format.channelCount} sampleRate=${format.sampleRate} " +
+                                        "bitrate=${format.averageBitrate}"
+                                )
+                            }
+                        }
+                    }
+                }
+
+                override fun onPlayerError(error: PlaybackException) {
+                    Log.e(
+                        DOLBY_DIAG_TAG,
+                        "playerError code=${error.errorCodeName} message=${error.message} " +
+                            "uri=${player.currentMediaItem?.localConfiguration?.uri}",
+                        error
+                    )
+                }
+            })
+        }
         
         // Attach immediately in case the session ID is already assigned before the listener is added
         if (player.audioSessionId != C.AUDIO_SESSION_ID_UNSET && player.audioSessionId != 0) {
@@ -146,6 +274,24 @@ class PlaybackService : MediaSessionService() {
             settingsRepository.usbDacEnabled.collectLatest { enabled ->
                 usbDacOutputManager.setEnabled(enabled)
                 equalizerManager.setOutputDisabledByUsb(enabled)
+            }
+        }
+
+        serviceScope.launch {
+            settingsRepository.ffmpegEac3Enabled.collectLatest { enabled ->
+                if (ffmpegAudioRendererIndex != null) {
+                    trackSelector.parameters = trackSelector.buildUponParameters()
+                        .setRendererDisabled(ffmpegAudioRendererIndex, !enabled)
+                        .build()
+                    if (com.aeswox.arcmusic.BuildConfig.DEBUG) {
+                        Log.i(
+                            DOLBY_DIAG_TAG,
+                            "ffmpegEac3FallbackEnabled=$enabled rendererIndex=$ffmpegAudioRendererIndex"
+                        )
+                    }
+                } else if (com.aeswox.arcmusic.BuildConfig.DEBUG) {
+                    Log.e(DOLBY_DIAG_TAG, "ffmpegEac3FallbackUnavailable enabled=$enabled")
+                }
             }
         }
     }

@@ -23,13 +23,14 @@ configurations.all {
 android {
   namespace = "com.aeswox.arcmusic"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
+  ndkVersion = "27.2.12479018"
 
   defaultConfig {
     applicationId = "com.aeswox.arcmusic"
     minSdk = 31
     targetSdk = 36
-    versionCode = 25
-    versionName = "2.1.4"
+    versionCode = 26
+    versionName = "2.1.5"
     multiDexEnabled = true
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -92,6 +93,7 @@ googleServices { missingGoogleServicesStrategy = MissingGoogleServicesStrategy.W
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
 dependencies {
+  implementation(project(":decoder-ffmpeg"))
   implementation("androidx.core:core-splashscreen:1.0.1")
   implementation(platform(libs.androidx.compose.bom))
   implementation(platform(libs.firebase.bom))
