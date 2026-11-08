@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.Velocity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.sign
 import kotlin.math.sin
@@ -74,6 +75,11 @@ fun Modifier.physicsBounceOverscroll(
                 val isGesture = !sourceStr.contains("Fling") && !sourceStr.contains("SideEffect")
                 
                 if (isGesture) {
+                    // A finger that lands owns the surface from wherever the swing had got to.
+                    // Stopping the oscillator here, before any branch below can return early, is
+                    // what keeps it from writing its own curve over this drag on every frame that
+                    // follows -- it runs in a coroutine nothing else cancels.
+                    animJob?.cancel()
                     val current = translationAnim.value
                     if (current != 0f) {
                         if (!isHorizontal && available.y != 0f && sign(current) != sign(available.y)) {
@@ -83,7 +89,6 @@ fun Modifier.physicsBounceOverscroll(
                             } else {
                                 proposedStretch to available.y
                             }
-                            animJob?.cancel()
                             animJob = scope.launch { translationAnim.snapTo(newStretch) }
                             return Offset(0f, consumedY)
                         } else if (isHorizontal && available.x != 0f && sign(current) != sign(available.x)) {
@@ -93,7 +98,6 @@ fun Modifier.physicsBounceOverscroll(
                             } else {
                                 proposedStretch to available.x
                             }
-                            animJob?.cancel()
                             animJob = scope.launch { translationAnim.snapTo(newStretch) }
                             return Offset(consumedX, 0f)
                         }
@@ -158,36 +162,35 @@ fun Modifier.physicsBounceOverscroll(
                     }
                     
                     val pixelScale = 3000f * jiggleSettings.amplitudeMultiplier
-                    
-                    val currentDecayRate = decayRate
-                    
-                    val durationNanos = 1200L * 1_000_000L // 1.2s
-                    val startTimeNanos = withFrameNanos { it }
-                    
-                    try {
+
+                    // The swing runs in a job this connection holds, not inline in the fling.
+                    // Compose launches a whole fling -- post-fling dispatch included -- into a
+                    // detached coroutine it never cancels when a finger lands, so a loop that
+                    // lived there would out-write every drag with its own curve until the window
+                    // had simply run out. Cancelling this job leaves the displacement where the
+                    // swing stood, which is where the finger picks it up.
+                    animJob = scope.launch {
+                        val startTimeNanos = withFrameNanos { it }
                         while (true) {
                             val currentNanos = withFrameNanos { it }
                             val elapsedNanos = currentNanos - startTimeNanos
-                            
-                            if (elapsedNanos > durationNanos) {
+
+                            if (elapsedNanos > 1200L * 1_000_000L) {
                                 translationAnim.snapTo(0f)
                                 break
                             }
-                            
+
                             val t = elapsedNanos / 1_000_000_000f
-                            val decay = exp(-currentDecayRate * t)
+                            val decay = exp(-decayRate * t)
                             val oscillation = sin(angularFrequency * t)
-                            
+
                             val bounceDisplacement = intensity * flingDirection * pixelScale * A * decay * oscillation
-                            val returnDisplacement = startDisplacement * decay * kotlin.math.cos(angularFrequency * t)
-                            
+                            val returnDisplacement = startDisplacement * decay * cos(angularFrequency * t)
+
                             translationAnim.snapTo(bounceDisplacement + returnDisplacement)
                         }
-                    } catch (e: Exception) {
-                        // Do not snap to 0! If the user intercepts the bounce with a new touch,
-                        // we must leave it at the current displacement so the drag continues smoothly.
                     }
-                    
+
                     return if (isHorizontal) Velocity(available.x, 0f) else Velocity(0f, available.y)
                 }
                 return Velocity.Zero
